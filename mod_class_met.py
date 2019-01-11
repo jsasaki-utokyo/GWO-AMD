@@ -6,7 +6,7 @@
 # （財）気象業務支援センター「気象データベース」の図化解析用に開発しているが，pandas DataFrameを活用することで，Classの汎用化を目指す．<br>
 # 現在のところ，「地上観測」のみに対応している．「アメダス」は今後対応する予定である．<br>
 # 1991年以降は毎時データで全天日射量あり（一部観測所のみ），1990年以前は3時間データで全天日射量，日照時間，降水量がない
-# #### Author: Jun Sasaki, Coded on Sep. 9, 2017, Revised on June 17, 2018
+# #### Author: Jun Sasaki, Coded on Sep. 9, 2017, Revised on January 11, 2019
 # ## 課題： 1990年以前の3時間データと全天日射量対応，アメダスデータ対応
 # 1990年以前と1991年以降を同時に読み込むことは可能だが，時間間隔が異なる．任意の時間間隔にリサンプリングできるようにする．<br>
 # 全天日射や欠損値への対応を検討する．<br>
@@ -85,6 +85,8 @@ class Met:
         return df
 
 
+# ## class Met_GWO 気象データベース・地上観測 時別値
+
 # In[ ]:
 
 
@@ -107,7 +109,7 @@ class Met_GWO(Met):
         ### the values of rmk to be set as NaN (RMK=0, 1, 2)
         self.rmk_nan01 = ["0", "1"]  ### sghtとslhtの夜間はRMK=2なので，RMK=2を欠損値としない
         self.rmk_nan = ["0", "1", "2"]  ### clodとtnkiは3時間間隔で，観測なしのRMK=2を欠損値とする必要がある
-        self.__df, self.__df_org, self.__df_interp, self.__df_interp_1H = self.__create_df()
+        self.__df, self.__df_org, self.__df_interp, self.__df_interp_1H = self.create_df()
 
     ### propertyの名称をcreate_dfでの名称から変更している．通常使うself.__df_interp_1Hをself.dfと簡単に呼べる様にするため
     @property
@@ -140,7 +142,8 @@ class Met_GWO(Met):
         return pd.read_csv(fi_path, index_col=0, parse_dates=True)  ### 出力したCSVをDataFrameとして読み込む
 
     '''以下は隠避されたmethod．意味が分からなくても使うには困らない'''
-    def __create_df(self):
+    def create_df(self, interp=True):
+        '''interp: True=欠損値補間を実行'''
         start = self.datetime_ini
         end   = self.datetime_end
         if start >= end:
@@ -182,7 +185,7 @@ class Met_GWO(Met):
             tsa.append(pd.read_csv(file, header = None, names = self.names,                  parse_dates=[[3,4,5]], na_values = na_values))
             tsa_org.append(pd.read_csv(file, header = None, names = self.names,                  parse_dates=[[3,4,5]]))
             
-        def create_df(tsa):
+        def merge_df(tsa):
             '''Create df from tsa'''
             df = pd.concat(tsa)
             df.index = [x + y * Hour() for x,y in zip(df['YYYY_MM_DD'],df['HH'])]
@@ -190,8 +193,8 @@ class Met_GWO(Met):
             df.drop("HH", axis=1, inplace=True)
             df=df[start:end]
             return df
-        df = create_df(tsa)  ### 欠損値を考慮したDataFrame
-        df_org = create_df(tsa_org)  ### 欠損値を無視した，元データと同じDataFrame
+        df = merge_df(tsa)  ### 欠損値を考慮したDataFrame
+        df_org = merge_df(tsa_org)  ### 欠損値を無視した，元データと同じDataFrame
 
         ### Check missing values
         check_list=["lhpa","shpa","kion","stem","rhum","muki","sped","clod","tnki",                     "humd","lght","slht","kous"]
@@ -231,6 +234,7 @@ class Met_GWO(Met):
         unit_conversion(df)
         unit_conversion(df_org)
 
+        
         def df_interp(df, df_org):
             '''RMKをチェックして欠損値を見つけ，RMKは元の整数を保持したまま，値を欠損値にし，
                それを適切に補間したDataFrame df_interpを作る．
@@ -253,7 +257,6 @@ class Met_GWO(Met):
                 df_interp.iloc[nan_ar[row][0],nan_ar[row][1]]=np.nan
             ### 欠損値を内挿したdf_interpを作る
             df_interp.interpolate(method='time', inplace=True)
-
             ### 1990年以前の3時間間隔を1時間間隔にする
             ### 1時間間隔のインデックスを作る
             new_index = pd.date_range(self.datetime_ini, self.datetime_end, freq='1H')
@@ -275,8 +278,12 @@ class Met_GWO(Met):
             df_interp_1H = pd.concat([df_ffill, df_interp_1H], axis=1)[df_interp.columns]
             return df_interp, df_interp_1H
         
-        df_interp, df_interp_1H = df_interp(df, df_org)
-        return df, df_org, df_interp, df_interp_1H
+        if interp:
+            df_interp, df_interp_1H = df_interp(df, df_org)
+            return df, df_org, df_interp, df_interp_1H
+        else:
+            print('Interpolation is deactivated.')
+            return df_org
 
     #@staticmethod
     #def check_data():
@@ -285,6 +292,7 @@ class Met_GWO(Met):
 
 
 # # データチェック用のClass
+# 千葉の2010年，2011年に欠損行があることが判明したので，CSVデータチェック用
 
 # In[ ]:
 
@@ -300,64 +308,11 @@ class Met_GWO_check(Met_GWO):
         ### the values of rmk to be set as NaN (RMK=0, 1, 2)
         self.rmk_nan01 = ["0", "1"]  ### sghtとslhtの夜間はRMK=2なので，RMK=2を欠損値としない
         self.rmk_nan = ["0", "1", "2"]  ### clodとtnkiは3時間間隔で，観測なしのRMK=2を欠損値とする必要がある
-        self.__df_org = self.__create_df()
+        self.__df_org = super().create_df(interp=False)  ### ここは必ずFalseにする
     @property
     def df_org(self):
         return self.__df_org
 
-    def __create_df(self):  ### Met_GWO()の__create_df()の上部と同じなので，分割する等して使い回しできるよう修正する
-        start = self.datetime_ini
-        end   = self.datetime_end
-        if start >= end:
-            print("ERROR: start >= end")
-            sys.exit()
-        Ys, Ye = int(start.strftime("%Y")), int(end.strftime("%Y"))
-        fdir = self.dir + self.stn + "/"  # data dir
-        print("Data directory = ", fdir)
-        fstart = glob.glob(fdir + self.stn + str(Ys-1) + ".csv") # check Ys-1 exists?
-        if len(fstart) == 1:
-            Ys += -1
-        else:
-            fstart = glob.glob(fdir + self.stn + str(Ys) + ".csv")
-        if len(fstart) != 1:
-            print(fstart)
-            print('ERROR: fstart does not exist or has more than one file.')
-            sys.exit()
-        fend = glob.glob(fdir + self.stn + str(Ye+1) + ".csv")  # Ye+1 exists?
-        if len(fend) == 1:
-            Ye += 1
-        else:
-            fend = glob.glob(fdir + self.stn + str(Ye) + ".csv")
-        if len(fend) != 1:
-            print('fend= ', fend)
-            print('ERROR: fend does not exist or has more than one file.')
-            sys.exit()
-
-        tsa = []  ### RMKの欠損値を考慮
-        tsa_org = []  ### RMKの欠損値を考慮しない，オリジナルと同一
-        fyears = list(range(Ys, Ye+1)) # from Ys to Ye
-
-        ### Reading csv files
-        ### カラム毎に欠損値を指定する
-        ### 欠損値を考慮しないデータフレームも併せて作成する
-        na_values =  {"lhpaRMK":self.rmk_nan,                       "shpaRMK":self.rmk_nan,"kionRMK":self.rmk_nan,"stemRMK":self.rmk_nan,"rhumRMK":self.rmk_nan,                       "mukiRMK":self.rmk_nan,"spedRMK":self.rmk_nan,"clodRMK":self.rmk_nan,"tnkiRMK":self.rmk_nan,                       "humdRMK":self.rmk_nan,"lghtRMK":self.rmk_nan01,"slhtRMK":self.rmk_nan01,"kousRMK":self.rmk_nan}
-        for year in fyears:
-            file = fdir + self.stn + str(year) + ".csv"
-            print(file)
-            tsa.append(pd.read_csv(file, header = None, names = self.names,                  parse_dates=[[3,4,5]], na_values = na_values))
-            tsa_org.append(pd.read_csv(file, header = None, names = self.names,                  parse_dates=[[3,4,5]]))
-            
-        def create_df(tsa):
-            '''Create df from tsa'''
-            df = pd.concat(tsa)
-            df.index = [x + y * Hour() for x,y in zip(df['YYYY_MM_DD'],df['HH'])]
-            df.drop("YYYY_MM_DD", axis=1, inplace=True)
-            df.drop("HH", axis=1, inplace=True)
-            df=df[start:end]
-            return df
-        #df = create_df(tsa)  ### 欠損値を考慮したDataFrame
-        df_org = create_df(tsa_org)  ### 欠損値を無視した，元データと同じDataFrame
-        return df_org
 
 
 class Met_GWO_daily(Met):
@@ -566,6 +521,8 @@ class Data1D_PlotConfig:
         self.format_xdata = format_xdata
         self.format_ydata = format_ydata
 
+
+# In[ ]:
 
 
 class Plot1D:
