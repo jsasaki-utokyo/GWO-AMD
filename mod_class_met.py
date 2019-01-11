@@ -89,17 +89,20 @@ class Met:
 
 
 class Met_GWO(Met):
-    '''気象データベース・地上観測DVDの時別（1990年以前は3時間間隔）データ抽出
+    '''気象データベース・地上観測DVDの時別値（1990年以前は3時間間隔）データ抽出
        Directory name is suppoed to be stn + "/", file name supposed to be stn + year + ".csv"'''
+    col_names_jp = ["観測所ID","観測所名","ID1","年","月","日","時",                     "現地気圧(0.1hPa)","ID2","海面気圧(0.1hPa)","ID3",                     "気温(0.1degC)","ID4","蒸気圧(0.1hPa)","ID5",                     "相対湿度(%)","ID6","風向(1(NNE)～16(N))","ID7","風速(0.1m/s)","ID8",                     "雲量(10分比)","ID9","現在天気","ID10","露天温度(0.1degC)","ID11",                     "日照時間(0.1時間)","ID12","全天日射量(0.01MJ/m2/h)","ID13",                     "降水量(0.1mm/h)","ID14"]
+    col_names = ["KanID","Kname","KanID_1","YYYY","MM","DD","HH","lhpa","lhpaRMK",                  "shpa","shpaRMK","kion","kionRMK","stem","stemRMK","rhum","rhumRMK",                  "muki","mukiRMK","sped","spedRMK","clod","clodRMK","tnki","tnkiRMK",                  "humd","humdRMK","lght","lghtRMK","slht","slhtRMK","kous","kousRMK"]
+    col_items_jp = ["現地気圧(hPa)","海面気圧(hPa)",                     "気温(degC)","蒸気圧(hPa)",                     "相対湿度(0-1)","風向(0-360)","風速(m/s)",                     "雲量(0-1)","現在天気","露天温度(degC)",                     "日照時間(時間)","全天日射量(W/m2)",                     "降水量(mm/h)","風速u(m/s)","風速v(m/s)"]
+    col_items =  ["lhpa",                   "shpa","kion","stem","rhum",                   "muki","sped","clod","tnki",                   "humd","lght","slht","kous","u","v"]
+
     def __init__(self, datetime_ini = "2014-1-10 15:00:00", datetime_end = "2014-6-1 00:00:00",                  stn = "Tokyo", dir = "../../../met/GWO/"):
         super().__init__(datetime_ini, datetime_end, stn, dir)
-        self.names_jp = ["観測所ID","観測所名","ID1","年","月","日","時",                          "現地気圧(0.1hPa)","ID2","海面気圧(0.1hPa)","ID3",                          "気温(0.1degC)","ID4","蒸気圧(0.1hPa)","ID5",                          "相対湿度(%)","ID6","風向(1(NNE)～16(N))","ID7","風速(0.1m/s)","ID8",                          "雲量(10分比)","ID9","現在天気","ID10","露天温度(0.1degC)","ID11",                          "日照時間(0.1時間)","ID12","全天日射量(0.01MJ/m2/h)","ID13",                          "降水量(0.1mm/h)","ID14"]
 
-        self.names = ["KanID","Kname","KanID_1","YYYY","MM","DD","HH","lhpa","lhpaRMK",                       "shpa","shpaRMK","kion","kionRMK","stem","stemRMK","rhum","rhumRMK",                       "muki","mukiRMK","sped","spedRMK","clod","clodRMK","tnki","tnkiRMK",                       "humd","humdRMK","lght","lghtRMK","slht","slhtRMK","kous","kousRMK"]
-
-        self.items_jp = ["現地気圧(hPa)","海面気圧(hPa)",                          "気温(degC)","蒸気圧(hPa)",                          "相対湿度(0-1)","風向(0-360)","風速(m/s)",                          "雲量(0-1)","現在天気","露天温度(degC)",                          "日照時間(時間)","全天日射量(W/m2)",                          "降水量(mm/h)","風速u(m/s)","風速v(m/s)"]
-
-        self.items = ["lhpa",                       "shpa","kion","stem","rhum",                       "muki","sped","clod","tnki",                       "humd","lght","slht","kous","u","v"]
+        self.names_jp = Met_GWO.col_names_jp
+        self.names = Met_GWO.col_names
+        self.items_jp = Met_GWO.col_items_jp
+        self.items = Met_GWO.col_items
 
         ### the values of rmk to be set as NaN (RMK=0, 1, 2)
         self.rmk_nan01 = ["0", "1"]  ### sghtとslhtの夜間はRMK=2なので，RMK=2を欠損値としない
@@ -275,10 +278,86 @@ class Met_GWO(Met):
         df_interp, df_interp_1H = df_interp(df, df_org)
         return df, df_org, df_interp, df_interp_1H
 
+    #@staticmethod
+    #def check_data():
+    #    '''CSV気象データをチェックするための静的メソッド'''
+    #    print(self.names_jp)
 
-# ## 気象データベース・地上観測・日別値用Class GWO Daily
+
+# # データチェック用のClass
 
 # In[ ]:
+
+
+class Met_GWO_check(Met_GWO):
+    def __init__(self, datetime_ini = "2014-1-1 15:00:00", datetime_end = "2014-6-1 00:00:00",                  stn = "Tokyo", dir = "../GWO/Hourly/"):
+        Met.__init__(self, datetime_ini, datetime_end, stn, dir)  ### Class Met_GWO inherits Class Met.
+        self.names_jp = Met_GWO.col_names_jp
+        self.names = Met_GWO.col_names
+        self.items_jp = Met_GWO.col_items_jp
+        self.items = Met_GWO.col_items
+
+        ### the values of rmk to be set as NaN (RMK=0, 1, 2)
+        self.rmk_nan01 = ["0", "1"]  ### sghtとslhtの夜間はRMK=2なので，RMK=2を欠損値としない
+        self.rmk_nan = ["0", "1", "2"]  ### clodとtnkiは3時間間隔で，観測なしのRMK=2を欠損値とする必要がある
+        self.__df_org = self.__create_df()
+    @property
+    def df_org(self):
+        return self.__df_org
+
+    def __create_df(self):  ### Met_GWO()の__create_df()の上部と同じなので，分割する等して使い回しできるよう修正する
+        start = self.datetime_ini
+        end   = self.datetime_end
+        if start >= end:
+            print("ERROR: start >= end")
+            sys.exit()
+        Ys, Ye = int(start.strftime("%Y")), int(end.strftime("%Y"))
+        fdir = self.dir + self.stn + "/"  # data dir
+        print("Data directory = ", fdir)
+        fstart = glob.glob(fdir + self.stn + str(Ys-1) + ".csv") # check Ys-1 exists?
+        if len(fstart) == 1:
+            Ys += -1
+        else:
+            fstart = glob.glob(fdir + self.stn + str(Ys) + ".csv")
+        if len(fstart) != 1:
+            print(fstart)
+            print('ERROR: fstart does not exist or has more than one file.')
+            sys.exit()
+        fend = glob.glob(fdir + self.stn + str(Ye+1) + ".csv")  # Ye+1 exists?
+        if len(fend) == 1:
+            Ye += 1
+        else:
+            fend = glob.glob(fdir + self.stn + str(Ye) + ".csv")
+        if len(fend) != 1:
+            print('fend= ', fend)
+            print('ERROR: fend does not exist or has more than one file.')
+            sys.exit()
+
+        tsa = []  ### RMKの欠損値を考慮
+        tsa_org = []  ### RMKの欠損値を考慮しない，オリジナルと同一
+        fyears = list(range(Ys, Ye+1)) # from Ys to Ye
+
+        ### Reading csv files
+        ### カラム毎に欠損値を指定する
+        ### 欠損値を考慮しないデータフレームも併せて作成する
+        na_values =  {"lhpaRMK":self.rmk_nan,                       "shpaRMK":self.rmk_nan,"kionRMK":self.rmk_nan,"stemRMK":self.rmk_nan,"rhumRMK":self.rmk_nan,                       "mukiRMK":self.rmk_nan,"spedRMK":self.rmk_nan,"clodRMK":self.rmk_nan,"tnkiRMK":self.rmk_nan,                       "humdRMK":self.rmk_nan,"lghtRMK":self.rmk_nan01,"slhtRMK":self.rmk_nan01,"kousRMK":self.rmk_nan}
+        for year in fyears:
+            file = fdir + self.stn + str(year) + ".csv"
+            print(file)
+            tsa.append(pd.read_csv(file, header = None, names = self.names,                  parse_dates=[[3,4,5]], na_values = na_values))
+            tsa_org.append(pd.read_csv(file, header = None, names = self.names,                  parse_dates=[[3,4,5]]))
+            
+        def create_df(tsa):
+            '''Create df from tsa'''
+            df = pd.concat(tsa)
+            df.index = [x + y * Hour() for x,y in zip(df['YYYY_MM_DD'],df['HH'])]
+            df.drop("YYYY_MM_DD", axis=1, inplace=True)
+            df.drop("HH", axis=1, inplace=True)
+            df=df[start:end]
+            return df
+        #df = create_df(tsa)  ### 欠損値を考慮したDataFrame
+        df_org = create_df(tsa_org)  ### 欠損値を無視した，元データと同じDataFrame
+        return df_org
 
 
 class Met_GWO_daily(Met):
@@ -325,7 +404,10 @@ class Met_GWO_daily(Met):
         '''メソッドto_csvで出力したcsvファイルを読み込みDataFrameを返す
            引数 fi_path=CSV fileのpath  戻り値 DataFrame
         '''
-        return pd.read_csv(fi_path, index_col=0, parse_dates=True)  ### 出力したCSVをDataFrameとして読み込む
+        try:
+            return pd.read_csv(fi_path, index_col=0, parse_dates=True)  ### 出力したCSVをDataFrameとして読み込む
+        except:
+            print('Error in reading csv of ', fi_path)
 
     '''以下は隠避されたmethod．意味が分からなくても使うには困らない'''
 
@@ -384,12 +466,12 @@ class Met_GWO_daily(Met):
         fstart = glob.glob(fdir + self.stn + str(Ys) + ".csv")
         if len(fstart) != 1:
             print(fstart)
-            print('ERROR: fstart does not exist or has more than one file.')
+            print('ERROR: fstart file does not exist or has more than one file.')
             sys.exit()
         fend = glob.glob(fdir + self.stn + str(Ye) + ".csv")
         if len(fend) != 1:
             print('fend= ', fend)
-            print('ERROR: fend does not exist or has more than one file.')
+            print('ERROR: fend file does not exist or has more than one file.')
             sys.exit()
 
         tsa_org = []  ### RMKの欠損値を考慮しない，オリジナルと同一
@@ -420,6 +502,7 @@ class Met_GWO_daily(Met):
         df = super().set_missing_values(df, rmk_cols, missing_rmk)
 
         return df_org, df
+
 
 class Data1Ds:
     '''Class for 1-D scalar data
@@ -461,6 +544,7 @@ class Data1D(Data1Ds):
             self.vrange = (-vmax, vmax)  ### useful for scaling vertical axis of vector
 
 
+
 class Data1D_PlotConfig:
     def __init__(self, fig_size: tuple=(10,2), title_size: int=14, label_size: int=12,                  plot_color = 'b', xlabel = None, ylabel = None, v_color = 'k', vlabel = None,                  vlabel_loc = 'lower right', xlim: tuple = None, ylim: tuple = None,                  x_major_locator = None, y_major_locator = None,                  x_minor_locator = None, y_minor_locator = None,                  grid = False, format_xdata = None, format_ydata = None):
         self.fig_size = fig_size
@@ -481,6 +565,7 @@ class Data1D_PlotConfig:
         self.grid = grid
         self.format_xdata = format_xdata
         self.format_ydata = format_ydata
+
 
 
 class Plot1D:
