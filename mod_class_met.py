@@ -29,6 +29,8 @@ from dateutil.parser import parse
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from matplotlib.dates import date2num, YearLocator, MonthLocator, DayLocator, DateFormatter
+from pandas.plotting import register_matplotlib_converters
+register_matplotlib_converters()
 
 get_ipython().run_line_magic('matplotlib', 'inline')
 
@@ -241,14 +243,22 @@ class Met_GWO(Met):
                さらに，df_interpをすべて1時間間隔にreindexし，欠損値を埋めたdf_interp_1Hを作る
             '''
             ### RMKがNaNである行rowsを抽出する Find rows containing NaN
-            rows = pd.isnull(df).any(axis=1).nonzero()[0]
+            ### rows = pd.isnull(df).any(axis=1).nonzero()[0]
+            ###
+            ### C:\dat\met\gwo-amd-meteorological-data\mod_class_met.py:244:
+            ### FutureWarning: Series.nonzero() is deprecated and will be removed
+            ### in a future version.Use
+            ### Series.to_numpy().nonzero() instead
+            rows = pd.isnull(df).any(axis=1).to_numpy().nonzero()[0]
             ### RMKがNaNである列colsを見つける．次行のコメントはrow=280において，列を見つける方法を例として示す
             ### cols = pd.isnull(df0.iloc[280]).nonzero()[0]  ### in case of row =280
             ### すべてのrowsについてRMKがNaNである列を見つけ，該当する行と列の番号を持つリストnan_ar[rows][cols]を作る
             ### nan_ar[0][0]は一つ目の行（0）の行番号，nan_ar[0][1]はその行の列番号を含むarrayを返す．
             ###   一般に一つの行には複数のNaNが含まれるので，列番号はarrayになる
             ### すべての行についてリスト内包を用い，リストnan_arを作る．ただし，列番号-1とすることで，RMKのデータ値の列番号とする．
-            nan_ar=[[row, pd.isnull(df.iloc[row]).nonzero()[0]-1] for row in rows]
+            ### Series.nonzero() is deprecated and will be removed in a future version.Use Series.to_numpy().nonzero() instead
+            ### nan_ar=[[row, pd.isnull(df.iloc[row]).nonzero()[0]-1] for row in rows]
+            nan_ar=[[row, pd.isnull(df.iloc[row]).to_numpy().nonzero()[0]-1] for row in rows]
             ### print(nan_ar)
             na_rows=[nan_ar[row][0] for row in range(len(rows))]  ### rows containing NaN
             ### print(na_rows)
@@ -458,7 +468,6 @@ class Met_GWO_daily(Met):
 
         return df_org, df
 
-
 class Data1Ds:
     '''Class for 1-D scalar data
        Use subclass Data1D for constructing instance for scalar or vector
@@ -476,7 +485,8 @@ class Data1Ds:
             self.x = self.df.index.to_pydatetime()  ### pandas datetimeindex => datetime.datetime
         else:
             self.x = self.df.index
-        self.v1 = self.df[col_1].values
+        self.s1 = self.df[col_1]  ### Series
+        self.v1 = self.df[col_1].values  ### NumPy
         self.v1max = max(self.v1)
         self.v1min = min(self.v1)
         self.v1range = (self.v1min, self.v1max)
@@ -490,18 +500,23 @@ class Data1D(Data1Ds):
         ''' USAGE: scalar = Data1D(df, 'kion'), vector = Data1D(df, 'u', 'v')'''
         super().__init__(df, col_1, xrange)
         if col_2:
-            self.v2 = self.df[col_2].values
+            self.s2 = self.df[col_2]  ### Series
+            self.v2 = self.df[col_2].values  ### numpy
             self.v2max = max(self.v2)
             self.v2min = min(self.v2)
             self.v2range = (self.v2min, self.v2max)
+            ### Override in Plot1D for handling rolling mean
             self.v = np.sqrt(self.v1**2 + self.v2**2)  ### v: magnitude of vector
             vmax = max(self.v)
             self.vrange = (-vmax, vmax)  ### useful for scaling vertical axis of vector
 
-
-
 class Data1D_PlotConfig:
-    def __init__(self, fig_size: tuple=(10,2), title_size: int=14, label_size: int=12,                  plot_color = 'b', xlabel = None, ylabel = None, v_color = 'k', vlabel = None,                  vlabel_loc = 'lower right', xlim: tuple = None, ylim: tuple = None,                  x_major_locator = None, y_major_locator = None,                  x_minor_locator = None, y_minor_locator = None,                  grid = False, format_xdata = None, format_ydata = None):
+    def __init__(self, fig_size: tuple=(10,2), title_size: int=14, label_size: int=12, \
+                 plot_color = 'b', xlabel = None, ylabel = None, v_color = 'k', vlabel = None, \
+                 vlabel_loc = 'lower right', xlim: tuple = None, ylim: tuple = None, \
+                 x_major_locator = None, y_major_locator = None, \
+                 x_minor_locator = None, y_minor_locator = None, \
+                 grid = False, format_xdata = None, format_ydata = None):
         self.fig_size = fig_size
         self.title_size = title_size
         self.label_size = label_size
@@ -521,14 +536,19 @@ class Data1D_PlotConfig:
         self.format_xdata = format_xdata
         self.format_ydata = format_ydata
 
-
-# In[ ]:
-
-
 class Plot1D:
-    def __init__(self, plot_config, data):
+    def __init__(self, plot_config, data, window=1, center=True):
+        '''window: rolling mean window in odd integer, center: rolling mean at center'''
         self.cfg = plot_config
         self.data = data
+        if window % 2 != 1:
+            print('ERROR: rolling window must be odd integer.')
+        self.window = window
+        self.center = center
+        self.data.v1 = self.data.s1.rolling(window=self.window, center=self.center).mean().values
+        if 'v2' in [key for key,value in data.__dict__.items()]:  ### 'v2'がself.dataの属性に含まれているかチェック
+            self.data.v2 = self.data.s2.rolling(window=self.window, center=self.center).mean().values
+            self.data.v = np.sqrt(self.data.v1**2 + self.data.v2**2) 
         self.figure = plt.figure(figsize=self.cfg.fig_size)
 
     def get_axes(self):
@@ -567,6 +587,8 @@ class Plot1D:
 
     def make_plot(self, axes):
         return axes.plot(self.data.x, self.data.v1, color=self.cfg.plot_color)
+        #return axes.plot(self.data.x, self.data.s1.rolling(window=self.window, center=self.center).mean().values,\
+        #                 color=self.cfg.plot_color)
 
     def make_quiver(self, axes):
         ### Plot vectors and unit vector
@@ -575,13 +597,21 @@ class Plot1D:
             x = date2num(self.data.x)
         else:
             x = self.data.x
-        self.q = axes.quiver(x, 0, self.data.v1, self.data.v2,                              color=self.cfg.plot_color, units='y', scale_units='y', scale=1, headlength=1,                              headaxislength=1, width=0.1, alpha=0.5)
+        #self.q = axes.quiver(x, 0, self.data.s1.rolling(window=self.window, center=self.center).mean().values,\
+        #                     self.data.s2.rolling(window=self.window, center=self.center).mean().values, \
+        #                     color=self.cfg.plot_color, units='y', scale_units='y', scale=1, headlength=1, \
+        #                     headaxislength=1, width=0.1, alpha=0.5)
+        self.q = axes.quiver(x, 0, self.data.v1, self.data.v2, \
+                             color=self.cfg.plot_color, units='y', scale_units='y', scale=1, headlength=1, \
+                             headaxislength=1, width=0.1, alpha=0.5)
         return self.q
 
     def make_quiverkey(self, axes):
         return axes.quiverkey(self.q, 0.2, 0.1, 5, '5 m/s', labelpos='W')
 
     def make_fill_between(self, axes):
+        #v1_rolling = self.data.s1.rolling(window=self.window, center=self.center).mean().values
+        #v2_rolling = self.data.s2.rolling(window=self.window, center=self.center).mean().values
         fill = axes.fill_between(date2num(self.data.x), self.data.v, 0, color= self.cfg.v_color, alpha=0.1)
         ### Fake box to insert a legend
         p = axes.add_patch(plt.Rectangle((1,1), 1, 1, fc=self.cfg.v_color, alpha=0.1))
