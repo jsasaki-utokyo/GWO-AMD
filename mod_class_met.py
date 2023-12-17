@@ -210,7 +210,7 @@ class Met_GWO(Met):
         fo_path (str) : output CSV file path
         '''
         df.to_csv(fo_path, encoding='utf-8', )  # Windows版ではShiftJISとなるため，UTF-8を明示する．
-        cmd = 'nkf -w -Lu --overwrite ' + fo_path  # 改行コードをLinuxのLFに強制変換（Linuxとの互換性維持）
+        cmd = ['nkf', '-w', '-Lu', '--overwrite', fo_path]  # 改行コードをLinuxのLFに強制変換（Linuxとの互換性維持）
         subprocess.call(cmd)
 
     def read_csv(self, fi_path):
@@ -520,7 +520,7 @@ class Met_GWO_daily(Met):
         '''DataFrame dfをCSV出力するmethod
            引数 df: DataFrame（必須）, fo_path=出力先ファイルのpath'''
         df.to_csv(fo_path, encoding='utf-8', )  ### CSVで出力する．デフォルトではWindows版ではShiftJISとなるため，UTF-8を明示する．
-        cmd = 'nkf -w -Lu --overwrite ' + fo_path  ### 改行コードをLinuxタイプのLFに変更しておく（Linuxとの互換性のため）
+        cmd = ['nkf', '-w', '-Lu', '--overwrite', fo_path] ### 改行コードをLinuxタイプのLFに変更しておく（Linuxとの互換性のため）
         subprocess.call(cmd)
 
     def read_csv(self, fi_path):
