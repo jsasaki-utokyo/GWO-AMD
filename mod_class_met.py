@@ -1,6 +1,3 @@
-
-# coding: utf-8
-
 # # Class for meteorological data handling
 # Developing processes of classes aiming to create ther class files to be invoked.<br>
 # （財）気象業務支援センター「気象データベース」の図化解析用に開発しているが，pandas DataFrameを活用することで，Classの汎用化を目指す．<br>
@@ -11,9 +8,6 @@
 # 1990年以前と1991年以降を同時に読み込むことは可能だが，時間間隔が異なる．任意の時間間隔にリサンプリングできるようにする．<br>
 # 全天日射や欠損値への対応を検討する．<br>
 # RMKが2の場合は0の値が入っているようであるが，このままでよいか要検討．全天日射では2は夜間に相当するので，0とするのでよい．
-
-# In[ ]:
-
 
 import sys
 #import os
@@ -35,74 +29,133 @@ register_matplotlib_converters()
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 
-# In[ ]:
-
-
 class Met:
-    '''気象データベース・地上観測DVD，アメダスDVDの時系列データ抽出
-  +--------+------------------------------------------------------------+
-  |リマーク|            解                                  説          |
-  +--------+------------------------------------------------------------+
-  |   ０   |観測値が未作成の場合                                        |
-  +--------+------------------------------------------------------------+
-  |   １   |欠測                                                        |
-  +--------+------------------------------------------------------------+
-  |   ２   |観測していない場合                                          |
-  +--------+------------------------------------------------------------+
-  |   ３   |日の極値が真の値以下の場合，該当現象がない推定値の場合      |
-  +--------+------------------------------------------------------------+
-  |   ４   |日の極値が真の値以上の場合，該当現象がない地域気象観測データ|
-  |        |を使用する場合                                              |
-  +--------+------------------------------------------------------------+
-  |   ５   |推定値が含まれる場合，または２４回平均値で欠測を含む場合    |
-  +--------+------------------------------------------------------------+
-  |   ６   |該当する現象がない場合（降水量，日照時間，降雪，積雪，最低海|
-  |        |面気圧）                                                    |
-  +--------+------------------------------------------------------------+
-　|   ７ 　|日の極値の起時が前日の場合　　　　　　　　　　　　　　　　　|
-　+--------+------------------------------------------------------------+
-　|   ８ 　|正常な観測値　　　　　　　　　　　　　　　　　　　　　　　　|
-　+--------+------------------------------------------------------------+
-  |   ９   |日の極値の起時が翌日の場合，または１９９０年までの８０型地上|
-  |        |気象観測装置からの自動取得値                                |
-  +--------+------------------------------------------------------------+
-  '''
-    rmk = {"0":"観測値が未作成の場合", "1": "欠測", "2":"観測していない場合",            "3":"日の極値が真の値以下の場合，該当現象がない推定値の場合",            "4":"日の極値が真の値以上の場合，該当現象がない地域気象観測データを使用する場合",            "5":"推定値が含まれる場合，または２４回平均値で欠測を含む場合",            "6":"該当する現象がない場合（降水量，日照時間，降雪，積雪，最低海面気圧）",            "7":"日の極値の起時が前日の場合", "8":"正常な観測値",            "9":"日の極値の起時が翌日の場合，または１９９０年までの８０型地上気象観測装置からの自動取得値"}
-    nan_0_1_RMK = [0, 1, 2]
-    def __init__(self, datetime_ini, datetime_end, stn, dir):
+    '''
+    気象データベース・地上観測DVD，アメダスDVDの時系列データ抽出
+    +--------+------------------------------------------------------------+
+    |リマーク|            解                                  説          |
+    +--------+------------------------------------------------------------+
+    |   ０   |観測値が未作成の場合                                        |
+    +--------+------------------------------------------------------------+
+    |   １   |欠測                                                        |
+    +--------+------------------------------------------------------------+
+    |   ２   |観測していない場合                                          |
+    +--------+------------------------------------------------------------+
+    |   ３   |日の極値が真の値以下の場合，該当現象がない推定値の場合      |
+    +--------+------------------------------------------------------------+
+    |   ４   |日の極値が真の値以上の場合，該当現象がない地域気象観測データ|
+    |        |を使用する場合                                              |
+    +--------+------------------------------------------------------------+
+    |   ５   |推定値が含まれる場合，または２４回平均値で欠測を含む場合    |
+    +--------+------------------------------------------------------------+
+    |   ６   |該当する現象がない場合（降水量，日照時間，降雪，積雪，最低海|
+    |        |面気圧）                                                    |
+    +--------+------------------------------------------------------------+
+    |   ７   |日の極値の起時が前日の場合                                  |
+    +--------+------------------------------------------------------------+
+    |   ８   |正常な観測値                                                |
+    +--------+------------------------------------------------------------+
+    |   ９   |日の極値の起時が翌日の場合，または１９９０年までの８０型地上|
+    |        |気象観測装置からの自動取得値                                |
+    +--------+------------------------------------------------------------+
+    '''
+
+    rmk = {"0":"観測値が未作成の場合",
+           "1": "欠測",
+           "2":"観測していない場合",
+           "3":"日の極値が真の値以下の場合，該当現象がない推定値の場合",
+           "4":"日の極値が真の値以上の場合，該当現象がない地域気象観測データを使用する場合",
+           "5":"推定値が含まれる場合，または２４回平均値で欠測を含む場合",
+           "6":"該当する現象がない場合（降水量，日照時間，降雪，積雪，最低海面気圧）",
+           "7":"日の極値の起時が前日の場合", "8":"正常な観測値",
+           "9":"日の極値の起時が翌日の場合，または１９９０年までの８０型地上気象観測装置からの自動取得値"}
+    nan_0_1_RMK = [0, 1, 2]   # 欠損値と判断するRMK値
+
+    def __init__(self, datetime_ini, datetime_end, stn, dirpath):
+        '''
+        Constructor for setting datetime period and dataset directory path
+        
+        Parameters
+        ----------
+        datetime_ini (str) : Initial datetime
+        datetime_end (str) : End datetime
+        stn (str) : Station name
+        dirpath (str) : Directory path for JMA Databse
+        '''
         self.datetime_ini = parse(datetime_ini)
         self.datetime_end = parse(datetime_end)
-        print("Initial datetime = ", self.datetime_ini)
-        print("End datetime = ", self.datetime_end)
+        # print("Initial datetime = ", self.datetime_ini)
+        # print("End datetime = ", self.datetime_end)
+        print("Initial datetime = {}".format(self.datetime_ini))
+        print("End datetime = {}".format(self.datetime_end))
         self.stn = stn
-        self.dir = dir
+        self.dirpath = dirpath
 
     def set_missing_values(self, df, rmk_cols, rmk_nans):
-        '''DataFrame dfを入力し，RMK列が欠損値条件を満たす行の一つ前の列の値をnp.nanに置換する'''
-        ### rmk_cols = [col for col in df.columns if 'RMK' in col]  ### RMK列名のリスト
+        '''
+        DataFrame dfを入力し，RMK列が欠損値条件を満たす行の一つ前の列の値をnp.nanに置換する
+        
+        Parameters
+        ----------
+        df (pandas.DataFrame) : Extracted dataset
+        rmk_cols (str list) : List of names for remark columns
+        rmk_nans (str list) : List of names for remark columns containing missing values
+        
+        Returns
+        -------
+        df (pandas.DataFrame) : Updated df
+        '''
+
+        ### rmk_cols = [col for col in df.columns if 'RMK' in col]  ## RMK列名のリスト
         for rmk_col in rmk_cols:
             for rmk_nan in rmk_nans:
-                idx = df.columns.get_loc(rmk_col) - 1  ### RMKに対応する値の列インデックス
+                idx = df.columns.get_loc(rmk_col) - 1  ## RMKに対応する値の列インデックス
                 df.iloc[:, idx].mask(df[rmk_col] == rmk_nan, np.nan, inplace=True)
         return df
 
 
-# ## class Met_GWO 気象データベース・地上観測 時別値
-
-# In[ ]:
-
-
 class Met_GWO(Met):
-    '''気象データベース・地上観測DVDの時別値（1990年以前は3時間間隔）データ抽出
-       Directory name is suppoed to be stn + "/", file name supposed to be stn + year + ".csv"'''
-    col_names_jp = ["観測所ID","観測所名","ID1","年","月","日","時",                     "現地気圧(0.1hPa)","ID2","海面気圧(0.1hPa)","ID3",                     "気温(0.1degC)","ID4","蒸気圧(0.1hPa)","ID5",                     "相対湿度(%)","ID6","風向(1(NNE)～16(N))","ID7","風速(0.1m/s)","ID8",                     "雲量(10分比)","ID9","現在天気","ID10","露天温度(0.1degC)","ID11",                     "日照時間(0.1時間)","ID12","全天日射量(0.01MJ/m2/h)","ID13",                     "降水量(0.1mm/h)","ID14"]
-    col_names = ["KanID","Kname","KanID_1","YYYY","MM","DD","HH","lhpa","lhpaRMK",                  "shpa","shpaRMK","kion","kionRMK","stem","stemRMK","rhum","rhumRMK",                  "muki","mukiRMK","sped","spedRMK","clod","clodRMK","tnki","tnkiRMK",                  "humd","humdRMK","lght","lghtRMK","slht","slhtRMK","kous","kousRMK"]
-    col_items_jp = ["現地気圧(hPa)","海面気圧(hPa)",                     "気温(degC)","蒸気圧(hPa)",                     "相対湿度(0-1)","風向(0-360)","風速(m/s)",                     "雲量(0-1)","現在天気","露天温度(degC)",                     "日照時間(時間)","全天日射量(W/m2)",                     "降水量(mm/h)","風速u(m/s)","風速v(m/s)"]
-    col_items =  ["lhpa",                   "shpa","kion","stem","rhum",                   "muki","sped","clod","tnki",                   "humd","lght","slht","kous","u","v"]
+    '''
+    気象データベース・地上観測DVDの時別値（1990年以前は3時間間隔）データ抽出
+    Directory name is suppoed to be stn + "/", file name supposed to be stn + year + ".csv"
+    '''
+    col_names_jp = ["観測所ID","観測所名","ID1","年","月","日","時",
+                    "現地気圧(0.1hPa)","ID2","海面気圧(0.1hPa)","ID3",
+                    "気温(0.1degC)","ID4","蒸気圧(0.1hPa)","ID5",
+                    "相対湿度(%)","ID6","風向(1(NNE)～16(N))","ID7","風速(0.1m/s)","ID8",
+                    "雲量(10分比)","ID9","現在天気","ID10","露天温度(0.1degC)","ID11",
+                    "日照時間(0.1時間)","ID12","全天日射量(0.01MJ/m2/h)","ID13",
+                    "降水量(0.1mm/h)","ID14"]
+    col_names = ["KanID","Kname","KanID_1","YYYY","MM","DD","HH","lhpa","lhpaRMK",
+                 "shpa","shpaRMK","kion","kionRMK","stem","stemRMK","rhum","rhumRMK",
+                 "muki","mukiRMK","sped","spedRMK","clod","clodRMK","tnki","tnkiRMK",
+                 "humd","humdRMK","lght","lghtRMK","slht","slhtRMK","kous","kousRMK"]
+    col_items_jp = ["現地気圧(hPa)","海面気圧(hPa)",
+                    "気温(degC)","蒸気圧(hPa)",
+                    "相対湿度(0-1)","風向(0-360)","風速(m/s)",
+                    "雲量(0-1)","現在天気","露天温度(degC)",
+                    "日照時間(時間)","全天日射量(W/m2)",
+                    "降水量(mm/h)","風速u(m/s)","風速v(m/s)"]
+    col_items =  ["lhpa",
+                  "shpa","kion","stem","rhum",
+                  "muki","sped","clod","tnki",
+                  "humd","lght","slht","kous","u","v"]
+    col_rmks = ["lhpaRMK","shpaRMK","kionRMK","stemRMK","rhumRMK","mukiRMK","spedRMK","clodRMK","tnkiRMK",
+                "humdRMK","lghtRMK","slhtRMK","kousRMK"] 
 
-    def __init__(self, datetime_ini = "2014-1-10 15:00:00", datetime_end = "2014-6-1 00:00:00",                  stn = "Tokyo", dir = "../../../met/GWO/"):
-        super().__init__(datetime_ini, datetime_end, stn, dir)
-
+    def __init__(self, datetime_ini = "2014-1-10 15:00:00", datetime_end = "2014-6-1 00:00:00",
+                 stn = "Tokyo", dirpath = "D:/dat/met/JMA_DataBase/GWO/"):
+        super().__init__(datetime_ini, datetime_end, stn, dirpath)
+        '''
+        Constructor for setting parameters for extracting dataset
+        
+        Parameters
+        ----------
+        datetime_ini (str) : Initial datetime
+        datetime_end (str) : End datetime
+        stn (str) : Station name
+        dirpath (str) : directory path for dataset
+        '''
         self.names_jp = Met_GWO.col_names_jp
         self.names = Met_GWO.col_names
         self.items_jp = Met_GWO.col_items_jp
@@ -111,48 +164,89 @@ class Met_GWO(Met):
         ### the values of rmk to be set as NaN (RMK=0, 1, 2)
         self.rmk_nan01 = ["0", "1"]  ### sghtとslhtの夜間はRMK=2なので，RMK=2を欠損値としない
         self.rmk_nan = ["0", "1", "2"]  ### clodとtnkiは3時間間隔で，観測なしのRMK=2を欠損値とする必要がある
-        self.__df, self.__df_org, self.__df_interp, self.__df_interp_1H = self.create_df()
+        self.__df, self.__df_interp, self.__df_interp_1H = self._create_df()
 
     ### propertyの名称をcreate_dfでの名称から変更している．通常使うself.__df_interp_1Hをself.dfと簡単に呼べる様にするため
-    @property
-    def df(self):
-        '''1時間間隔で欠損値を可能な限り補間したDataFrame'''
-        return self.__df_interp_1H
+
     @property
     def df_org(self):
-        '''元々の時間間隔で欠損値を可能な限り補間したDataFrame．1990年を境に時間間隔が異なる'''
-        return self.__df_interp
-    @property
-    def df_na_rmk(self):
-        '''元々の時間間隔で欠損値を含むDataFrame．df_naと同様だが，RMK値を欠損値にする'''
+        '''
+        元の時間間隔で欠損値を補間していないDataFrame
+        オリジナルに存在しないdatetime行は欠損値として挿入済
+        '''
         return self.__df
+
     @property
-    def df_na(self):
-        '''元々の時間間隔で欠損値を含むDataFrame．df_na_rmkと同様だが変数値を欠損値にする'''
-        return self.__df_org
+    def df_interp(self):
+        '''
+        元の時間間隔で欠損値を可能な限り補間したDataFrame
+        '''
+        return self.__df_interp
+
+    @property
+    def df(self):
+        '''
+        1時間間隔で欠損値を可能な限り補間したDataFrame
+        '''
+        return self.__df_interp_1H
+
+    @property
+    def df_missing_rows(self):
+        '''
+        元の時間間隔で欠損値を可能な限り補間したDataFrameにおいて，オリジナルに存在しないdatetime行を抽出
+        Missing rowsがどのように補間されたか確認する
+        '''
+        masked = np.isin(self.__df_interp.index, self.__index_masked)
+        #print(masked)
+        return self.__df_interp[masked]
 
     def to_csv(self, df, fo_path='./df.csv'):
-        '''DataFrame dfをCSV出力するmethod
-           引数 df: DataFrame（必須）, fo_path=出力先ファイルのpath'''
-        df.to_csv(fo_path, encoding='utf-8', )  ### CSVで出力する．デフォルトではWindows版ではShiftJISとなるため，UTF-8を明示する．
-        cmd = 'nkf -w -Lu --overwrite ' + fo_path  ### 改行コードをLinuxタイプのLFに変更しておく（Linuxとの互換性のため）
-        subprocess.call(cmd)
-    def read_csv(self, fi_path):
-        '''fi_pathからCSV fileを読み込みDataFrameを作って返す
-           引数 fi_path=CSV fileのpath  戻り値 DataFrame
         '''
-        return pd.read_csv(fi_path, index_col=0, parse_dates=True)  ### 出力したCSVをDataFrameとして読み込む
+        dfをCSV出力する
+           
+        Parameters
+        ----------
+        df (pandas.DataFrame) : DataFrame of dataset
+        fo_path (str) : output CSV file path
+        '''
+        df.to_csv(fo_path, encoding='utf-8', )  # Windows版ではShiftJISとなるため，UTF-8を明示する．
+        cmd = 'nkf -w -Lu --overwrite ' + fo_path  # 改行コードをLinuxのLFに強制変換（Linuxとの互換性維持）
+        subprocess.call(cmd)
 
-    '''以下は隠避されたmethod．意味が分からなくても使うには困らない'''
-    def create_df(self, interp=True):
-        '''interp: True=欠損値補間を実行'''
+    def read_csv(self, fi_path):
+        '''
+        Read the extracted data from a temporary CSV file and create a pandas.DataFrame.
+                
+        Parameters
+        ----------
+        fi_path (str) : Temporaly CSV file path
+        
+        Returns
+        -------
+        pandas.DataFrame
+        '''
+        return pd.read_csv(fi_path, index_col=0, parse_dates=True)  # 出力したCSVをDataFrameとして読み込む
+
+    ############################################################
+    # 以下は隠避されたmethod．意味が分からなくても使うには困らない
+    # The following are private methods.
+    ############################################################
+
+    def _create_df(self, interp=True):
+        '''
+        Create pandas.DataFrame of dataset.
+        
+        Parameters
+        ----------
+        interp (bool) : Interpote missing values
+        '''
         start = self.datetime_ini
         end   = self.datetime_end
         if start >= end:
             print("ERROR: start >= end")
             sys.exit()
         Ys, Ye = int(start.strftime("%Y")), int(end.strftime("%Y"))
-        fdir = self.dir + self.stn + "/"  # data dir
+        fdir = self.dirpath + self.stn + "/"  # data dirpath
         print("Data directory = ", fdir)
         fstart = glob.glob(fdir + self.stn + str(Ys-1) + ".csv") # check Ys-1 exists?
         if len(fstart) == 1:
@@ -173,164 +267,228 @@ class Met_GWO(Met):
             print('ERROR: fend does not exist or has more than one file.')
             sys.exit()
 
-        tsa = []  ### RMKの欠損値を考慮
-        tsa_org = []  ### RMKの欠損値を考慮しない，オリジナルと同一
-        fyears = list(range(Ys, Ye+1)) # from Ys to Ye
-
-        ### Reading csv files
-        ### カラム毎に欠損値を指定する
-        ### 欠損値を考慮しないデータフレームも併せて作成する
-        na_values =  {"lhpaRMK":self.rmk_nan,                       "shpaRMK":self.rmk_nan,"kionRMK":self.rmk_nan,"stemRMK":self.rmk_nan,"rhumRMK":self.rmk_nan,                       "mukiRMK":self.rmk_nan,"spedRMK":self.rmk_nan,"clodRMK":self.rmk_nan,"tnkiRMK":self.rmk_nan,                       "humdRMK":self.rmk_nan,"lghtRMK":self.rmk_nan01,"slhtRMK":self.rmk_nan01,"kousRMK":self.rmk_nan}
-        for year in fyears:
-            file = fdir + self.stn + str(year) + ".csv"
-            print(file)
-            tsa.append(pd.read_csv(file, header = None, names = self.names,                  parse_dates=[[3,4,5]], na_values = na_values))
-            tsa_org.append(pd.read_csv(file, header = None, names = self.names,                  parse_dates=[[3,4,5]]))
-            
-        def merge_df(tsa):
-            '''Create df from tsa'''
-            df = pd.concat(tsa)
-            df.index = [x + y * Hour() for x,y in zip(df['YYYY_MM_DD'],df['HH'])]
-            df.drop("YYYY_MM_DD", axis=1, inplace=True)
-            df.drop("HH", axis=1, inplace=True)
-            df=df[start:end]
-            return df
-        df = merge_df(tsa)  ### 欠損値を考慮したDataFrame
-        df_org = merge_df(tsa_org)  ### 欠損値を無視した，元データと同じDataFrame
-
-        ### Check missing values
-        check_list=["lhpa","shpa","kion","stem","rhum","muki","sped","clod","tnki",                     "humd","lght","slht","kous"]
-        for lst in check_list:
-            rmk = lst + "RMK"
-            mask = df[rmk] == 1 # 1:missing value
-            missing = df[lst][mask]
-        if len(missing)==0:
-            #print("No missing values in", lst)
-            pass
-        else:
-            print(missing, "in", lst)
-
-        ### Unit conversions
-        '''
-        TEEM出力：海面気圧(hPa), 気温(degC)，蒸気圧(hPa)，相対湿度(0-1)，風速(m/s)，
-                  風向(deg), 雲量(0-1), 全天日射量(W/m2), 降水量(m/h)
-        '''
-        def unit_conversion(df):
-            df['lhpa']=df['lhpa']/1.0e1 # [0.1hPa] -> [hPa]
-            df['shpa']=df['shpa']/1.0e1 # [0.1hPa] -> [hPa]
-            df['kion']=df['kion']/1.0e1 # [0.1degC] -> [degC]
-            df['stem']=df['stem']/1.0e1 # [0.1hPa] -> [hPa]
-            df['rhum']=df['rhum']/1.0e2 # [%] -> [0-1]
-            df['muki']=-90.0 - df['muki'] * 22.5 # [0-16] -> [deg]  0=NA, 1=NNE, .., 8=S, ..., 16=N
-            df['muki']=df['muki'] % 360.0 # 0-360
-            df['sped']=df['sped']/1.0e1 # [0.1m/s] -> [m/s]
-            df['clod']=df['clod']/1.0e1 # [0-10] -> [0-1]
-            df['humd']=df['humd']/1.0e1 # [0.1degC] -> [degC]
-            df['lght']=df['lght']/1.0e1 # [0.1h] -> [h]
-            df['slht']=df['slht']*1.0e4/3.6e3 # [0.01MJ/m2/h] -> [J/m2/s] = [W/m2]
-            ### wind vector (u,v)
-            rad = df["muki"].values * 2 * np.pi / 360.0
-            (u, v) = df["sped"].values * (np.cos(rad), np.sin(rad))
-            df["u"] = u
-            df["v"] = v
-        unit_conversion(df)
-        unit_conversion(df_org)
-
+        tsa = []  # 年別dfのリスト
+        tsi_masked = []
         
-        def df_interp(df, df_org):
-            '''RMKをチェックして欠損値を見つけ，RMKは元の整数を保持したまま，値を欠損値にし，
-               それを適切に補間したDataFrame df_interpを作る．
-               さらに，df_interpをすべて1時間間隔にreindexし，欠損値を埋めたdf_interp_1Hを作る
-            '''
-            ### RMKがNaNである行rowsを抽出する Find rows containing NaN
-            ### rows = pd.isnull(df).any(axis=1).nonzero()[0]
-            ###
-            ### C:\dat\met\gwo-amd-meteorological-data\mod_class_met.py:244:
-            ### FutureWarning: Series.nonzero() is deprecated and will be removed
-            ### in a future version.Use
-            ### Series.to_numpy().nonzero() instead
-            rows = pd.isnull(df).any(axis=1).to_numpy().nonzero()[0]
-            ### RMKがNaNである列colsを見つける．次行のコメントはrow=280において，列を見つける方法を例として示す
-            ### cols = pd.isnull(df0.iloc[280]).nonzero()[0]  ### in case of row =280
-            ### すべてのrowsについてRMKがNaNである列を見つけ，該当する行と列の番号を持つリストnan_ar[rows][cols]を作る
-            ### nan_ar[0][0]は一つ目の行（0）の行番号，nan_ar[0][1]はその行の列番号を含むarrayを返す．
-            ###   一般に一つの行には複数のNaNが含まれるので，列番号はarrayになる
-            ### すべての行についてリスト内包を用い，リストnan_arを作る．ただし，列番号-1とすることで，RMKのデータ値の列番号とする．
-            ### Series.nonzero() is deprecated and will be removed in a future version.Use Series.to_numpy().nonzero() instead
-            ### nan_ar=[[row, pd.isnull(df.iloc[row]).nonzero()[0]-1] for row in rows]
-            nan_ar=[[row, pd.isnull(df.iloc[row]).to_numpy().nonzero()[0]-1] for row in rows]
-            ### print(nan_ar)
-            na_rows=[nan_ar[row][0] for row in range(len(rows))]  ### rows containing NaN
-            ### print(na_rows)
-            df_interp=df_org
-            for row in range(len(nan_ar)):
-                df_interp.iloc[nan_ar[row][0],nan_ar[row][1]]=np.nan
-            ### 欠損値を内挿したdf_interpを作る
-            df_interp.interpolate(method='time', inplace=True)
-            ### 1990年以前の3時間間隔を1時間間隔にする
-            ### 1時間間隔のインデックスを作る
-            new_index = pd.date_range(self.datetime_ini, self.datetime_end, freq='1H')
-            ### ffillを適用するカラム名のリスト
-            cols_ffill=['KanID', 'Kname', 'KanID_1', 'lhpaRMK', 'shpaRMK', 'kionRMK', 'stemRMK', 'rhumRMK', 'mukiRMK', 'spedRMK',                         'clodRMK', 'tnkiRMK', 'humdRMK', 'lghtRMK', 'slhtRMK', 'kousRMK']
-            ### カラム全体のリストからffillを適用するカラムを削除するラムダ関数dellistを定義
-            dellist = lambda items, sublist: [item for item in items if item not in sublist]
-            ### 内挿を適用するカラム名のリストをつくる
-            cols_interp=dellist(df_interp.columns, cols_ffill)
-            ### print(cols_interp)
-            ### 1時間間隔のインデックスを適用し，ffillを適用すべきカラムを対象に補完実行．結果をdf_ffillに入れる
-            df_ffill = df_interp.reindex(new_index).loc[:, cols_ffill].fillna(method='ffill')
-            ### カラムKname以外のカラムのdtypeをintに戻す（NaNを扱うとintだったものがfloatに変更されてしまう）
-            df_ffill[dellist(df_ffill.columns, ['Kname'])] = df_ffill[dellist(df_ffill.columns, ['Kname'])].astype(int)
-            ### 1時間間隔のインデックスを適用し，時間内挿すべきカラムを対象に内挿実行．結果をdf_interpに入れる
-            df_interp_1H = df_interp.reindex(new_index).loc[:, cols_interp].interpolate(method='time')
-            ### df_ffillとdf_interpを連結し，カラムの順序をdf1と同じとしたデータフレームdfを作る
-            ### これで一応完成だが，1990年以前の全天日射量，日照時間，降水量への対応を今後進める
-            df_interp_1H = pd.concat([df_ffill, df_interp_1H], axis=1)[df_interp.columns]
-            return df_interp, df_interp_1H
+        fyears = list(range(Ys, Ye+1))  # from Ys to Ye
+
+        ## Reading csv files
+        ## カラム毎に欠損値を指定する
+        ## 欠損値を考慮しないデータフレームも併せて作成する
+        self.na_values = {"lhpaRMK":self.rmk_nan,
+                          "shpaRMK":self.rmk_nan, "kionRMK":self.rmk_nan, "stemRMK":self.rmk_nan,
+                          "rhumRMK":self.rmk_nan, "mukiRMK":self.rmk_nan, "spedRMK":self.rmk_nan,
+                          "clodRMK":self.rmk_nan, "tnkiRMK":self.rmk_nan, "humdRMK":self.rmk_nan,
+                          "lghtRMK":self.rmk_nan01, "slhtRMK":self.rmk_nan01, "kousRMK":self.rmk_nan}
+      
+        for year in fyears:
+            file = "{}{}{}.csv".format(fdir, self.stn, str(year))
+            print("Reading {}".format(file))
+            
+            df_tmp = pd.read_csv(file, header = None, names = self.names, parse_dates=[[3,4,5]])
+            ## YYYY-MM-DD and HH (hour) columns are integrated into datetime index.
+            df_tmp.index = [x + y * Hour() for x,y in zip(df_tmp['YYYY_MM_DD'],df_tmp['HH'])]
+            df_tmp.drop("YYYY_MM_DD", axis=1, inplace=True)
+            df_tmp.drop("HH", axis=1, inplace=True)
+
+            ## Check and fill missing rows with missing_value = 9999 to avoid RMKs dtype being float
+            if interp:
+                df_tmp, index_masked_tmp = self._check_fill_missing_rows(df_tmp, year)
+                df_tmp = self._check_fill_missing_values(df_tmp)
+                tsi_masked.append(index_masked_tmp)
+            tsa.append(df_tmp)
+          
+        ## Concatinate DataFrame in each year and slice with [start:end]
+        df = pd.concat(tsa)[start:end]
+        #self.__index_masked = pd.concat(tsi_masked)[start:end]
+        #self._index_masked = pd.concat(index_masked)[start:end]
         
         if interp:
-            df_interp, df_interp_1H = df_interp(df, df_org)
-            return df, df_org, df_interp, df_interp_1H
+            try:
+                self.__index_masked = pd.concat(tsi_masked)[start:end]
+            except:
+                self.__index_masked = None
+            df = self._unit_conversion(df)
+            df_interp, df_interp_1H = self._df_interp(df)
+            return df, df_interp, df_interp_1H
         else:
-            print('Interpolation is deactivated.')
-            return df_org
+            print('Original data with no editing')
+            return df
 
-    #@staticmethod
-    #def check_data():
-    #    '''CSV気象データをチェックするための静的メソッド'''
-    #    print(self.names_jp)
+    def _check_fill_missing_rows(self, df, year):
+        '''
+        There may be missing rows (datetime index) in the case of all values being missing.
+        Insert such rows with 9999 values. NaNs are not used to avoid RMKs' dtype being float.
+            
+        Parameters
+        ----------
+        df (pandas.DataFrame) : One year dataset at one station
+        year (int) : Year of the dataset
+            
+        Returns
+        -------
+        df (pandas.DataFrame) : Updated df with complete datetime rows
+            
+        Note
+        ----
+        - df.resample('H').asfreq() should not be applied as the initial or the end row may be missing.
+        - pandas hours must be between 0 and 23 while the original dataset between 1 and 24.
 
+        '''       
+        ## Get the columns and their values to be set in missing rows
+        replaced_vals = df[['KanID', 'Kname', 'KanID_1']].drop_duplicates().values[0]
+        dict_for_fill = dict(zip(['KanID', 'Kname', 'KanID_1'], replaced_vals))
+        print(dict_for_fill)
+        ## Create a complete datetime index for the year dependent on the datetime interval.
+        ## The intervals are 3-hour (-1990) and 1-hour (1991-).
+        if year < 1991:  # 3-hour interval from 03 am to 00 am, Not 03 to 24
+            datetime_ini = "{}-01-01 03:00:00".format(year)
+            datetime_end = "{}-01-01 00:00:00".format(year+1)
+            complete_index = pd.date_range(datetime_ini, datetime_end, freq='3H')    
+        else:            # One-hour interval from 01 am to 00 am, Not 01 to 24
+            datetime_ini = "{}-01-01 01:00:00".format(year)
+            datetime_end = "{}-01-01 00:00:00".format(year+1)
+            complete_index = pd.date_range(datetime_ini, datetime_end, freq='H')
 
-# # データチェック用のClass
-# 千葉の2010年，2011年に欠損行があることが判明したので，CSVデータチェック用
+        masked = np.logical_not(np.isin(complete_index, df.index))
+                
+        ## If missing rows exist:
+        if np.count_nonzero(masked) > 0:
+            df = df.reindex(complete_index, fill_value = 9999)
+                
+            rmk_cols = [col for col in df.columns if 'RMK' in col]
+            for rmk_col in rmk_cols:
+                idx = df.columns.get_loc(rmk_col) - 1  # Find value_col index corresponding to rmk_col
+                df.iloc[:,idx].mask(df[rmk_col] == 9999, np.nan, inplace=True)
+                df.loc[:, rmk_col].mask(df[rmk_col] == 9999, 0, inplace=True)
 
-# In[ ]:
+            df.loc[:,'KanID'].replace(9999, dict_for_fill['KanID'], inplace=True)
+            df.loc[:,'Kname'].replace(9999, dict_for_fill['Kname'], inplace=True)
+            df.loc[:,'KanID_1'].replace(9999, dict_for_fill['KanID_1'], inplace=True)
+            ## Do not use the following, which does not work. Use slicing above.
+            #df[['KanID']].replace(9999, dict_for_fill['KanID'], inplace=True)
+            #df[['Kname']].replace(9999, dict_for_fill['Kname'], inplace=True)
+            #df[['KanID_1']].replace(9999, dict_for_fill['KanID_1'], inplace=True)
+            print("Missing rows are filled with data-val=np.nan and rmk=0")
+            print(df[masked])
+            #print(masked)
+            #print(df.index.to_series())
+            index_masked = df.index.to_series()[masked]
+        else:
+            print("There is no missing row.")
+            index_masked = None
+
+        return df, index_masked
+
+    def _check_fill_missing_values(self, df):
+        '''
+        Set missing values corresponding to each RMK.
+        
+        Parameters
+        ----------
+        df (pandas.DataFrame)
+        
+        Returns
+        -------
+        df (pandas.DataFrame) : Updated df
+        '''
+        ## rmk_cols = [col for col in df.columns if 'RMK' in col]
+        for key in self.na_values:
+            idx = df.columns.get_loc(key) - 1  # Find value_col index corresponding to rmk_col
+            ## カラムにおいて，リストの要素にマッチした行をTrueにする 
+            df.iloc[:,idx].mask(df[key].isin(self.na_values[key]), inplace=True)
+        return df
+
+    def _unit_conversion(self, df):
+        '''
+        Convert units. Should be edited appropriately. The following for TEEM (Lab's model).          
+    
+        Parameters
+        ----------
+        df (pandas.DataFrame)
+    
+        Returns
+        df (pandas.DataFrame) : Updated df
+        '''
+        df['lhpa']=df['lhpa']/1.0e1  # [0.1hPa] -> [hPa]  現地気圧  local atmospheric pressure
+        df['shpa']=df['shpa']/1.0e1  # [0.1hPa] -> [hPa]  海面気圧  sealevel atmospheric pressure
+        df['kion']=df['kion']/1.0e1  # [0.1degC] -> [degC]  気温  air temperature
+        df['stem']=df['stem']/1.0e1  # [0.1hPa] -> [hPa]  蒸気圧  vapor pressure
+        df['rhum']=df['rhum']/1.0e2  # [%] -> [0-1]  相対湿度  relative humidity
+        df['muki']=-90.0 - df['muki'] * 22.5   # [0-16] -> [deg]  0=N/A, 1=NNE, .., 8=S, .., 16=N  風向 wind direction
+        df['muki']=df['muki'] % 360.0  # 0-360  風向角度  wind direction anti-colockwise angle from W-E axis.
+        df['sped']=df['sped']/1.0e1  # [0.1m/s] -> [m/s]  風速  wind speed
+        df['clod']=df['clod']/1.0e1  # [0-10] -> [0-1]  雲量  cloud cover
+        df['humd']=df['humd']/1.0e1  # [0.1degC] -> [degC]  露点温度  dew-point temperature
+        df['lght']=df['lght']/1.0e1  # [0.1h] -> [h]  日照時間  daylight hours
+        df['slht']=df['slht']*1.0e4/3.6e3  # [0.01MJ/m2/h] -> [J/m2/s] = [W/m2]  短波放射  shortwave radiation
+        ## wind vector (u,v)
+        rad = df["muki"].values * 2 * np.pi / 360.0
+        (u, v) = df["sped"].values * (np.cos(rad), np.sin(rad))
+        df["u"] = u
+        df["v"] = v
+        return df
+
+    def _df_interp(self, df):
+        '''
+        RMKをチェックして欠損値を見つけ，RMKは元の整数を保持したまま，対応する変数値を欠損値にし，
+        それを適切に補間したDataFrame df_interpを作る．
+        さらに，df_interpをすべて1時間間隔にreindexし，欠損値を埋めたdf_interp_1Hを作る
+        '''
+        ### 欠損値を内挿したdf_interpを作る
+        df_interp = df.interpolate(method='time').copy()
+
+        ### 1990年以前の3時間間隔を1時間間隔にする
+        ### 1時間間隔のインデックスを作る
+        new_index = pd.date_range(self.datetime_ini, self.datetime_end, freq='1H')
+        ### ffillを適用するカラム名のリスト
+        cols_ffill=['KanID', 'Kname', 'KanID_1', 'lhpaRMK', 'shpaRMK', 'kionRMK', 'stemRMK', 'rhumRMK',
+                    'mukiRMK', 'spedRMK', 'clodRMK', 'tnkiRMK', 'humdRMK', 'lghtRMK', 'slhtRMK', 'kousRMK']
+        ### カラム全体のリストからffillを適用するカラムを削除するラムダ関数dellistを定義
+        dellist = lambda items, sublist: [item for item in items if item not in sublist]
+        ### ffillではなく，内挿を適用するカラム名のリストをつくる
+        cols_interp=dellist(df_interp.columns, cols_ffill)
+
+        ### 1時間間隔のインデックスを適用し，ffillを適用すべきカラムを対象に補完実行．結果をdf_ffillに入れる
+        df_ffill = df_interp.reindex(new_index).loc[:, cols_ffill].fillna(method='ffill')
+
+        ### 1時間間隔のインデックスを適用し，時間内挿すべきカラムを対象に内挿実行．結果をdf_interp_1Hに入れる
+        df_interp_1H = df_interp.reindex(new_index).loc[:, cols_interp].interpolate(method='time').copy()
+        ### df_ffillとdf_interpを連結し，カラムの順序をdf1と同じとしたデータフレームdfを作る
+        ### これで一応完成だが，1990年以前の全天日射量，日照時間，降水量への対応を今後進める
+        df_interp_1H = pd.concat([df_ffill, df_interp_1H], axis=1)[df_interp.columns]
+
+        return df_interp, df_interp_1H
 
 
 class Met_GWO_check(Met_GWO):
-    def __init__(self, datetime_ini = "2014-1-1 15:00:00", datetime_end = "2014-6-1 00:00:00",                  stn = "Tokyo", dir = "../GWO/Hourly/"):
-        Met.__init__(self, datetime_ini, datetime_end, stn, dir)  ### Class Met_GWO inherits Class Met.
+    '''
+    Check missing values using RMK values, and if found, set corresponding values as NaN
+    '''
+    def __init__(self, datetime_ini = "2014-1-1 15:00:00", datetime_end = "2014-6-1 00:00:00",
+                 stn = "Tokyo", dirpath = "../GWO/Hourly/"):
+        Met.__init__(self, datetime_ini, datetime_end, stn, dirpath)  # Class Met_GWO inherits Class Met.
         self.names_jp = Met_GWO.col_names_jp
         self.names = Met_GWO.col_names
         self.items_jp = Met_GWO.col_items_jp
         self.items = Met_GWO.col_items
 
-        ### the values of rmk to be set as NaN (RMK=0, 1, 2)
-        self.rmk_nan01 = ["0", "1"]  ### sghtとslhtの夜間はRMK=2なので，RMK=2を欠損値としない
-        self.rmk_nan = ["0", "1", "2"]  ### clodとtnkiは3時間間隔で，観測なしのRMK=2を欠損値とする必要がある
-        self.__df_org = super().create_df(interp=False)  ### ここは必ずFalseにする
-    @property
-    def df_org(self):
-        return self.__df_org
+        ## the values of rmk to be set as NaN (RMK=0, 1, 2)
+        self.rmk_nan01 = ["0", "1"]  # sghtとslhtの夜間はRMK=2なので，RMK=2を欠損値としない
+        self.rmk_nan = ["0", "1", "2"]  # clodとtnkiは3時間間隔で，観測なしのRMK=2を欠損値とする必要がある
+        self.__df = super()._create_df(interp=False)  # ここは必ずFalseにする
 
+    @property
+    def df(self):
+        return self.__df
 
 
 class Met_GWO_daily(Met):
     '''気象データベース・地上観測DVDの日別値データ抽出
        全天日射量日別値の単位について：1961-1980は1cal/cm2，1981以降は0.1MJ/m2
        Directory name is suppoed to be stn + "/", file name supposed to be stn + year + ".csv"'''
-    def __init__(self, datetime_ini = "2014-1-10 15:00:00", datetime_end = "2014-6-1 00:00:00",                  stn = "Tokyo", dir = "../../../met/GWO/Daily/"):
-        super().__init__(datetime_ini, datetime_end, stn, dir)
+    def __init__(self, datetime_ini = "2014-1-10 15:00:00", datetime_end = "2014-6-1 00:00:00",                  stn = "Tokyo", dirpath = "../../../met/GWO/Daily/"):
+        super().__init__(datetime_ini, datetime_end, stn, dirpath)
         #super().__init__()
         self.names_jp = ["観測所ID","観測所名","ID1","年","月","日",                          "平均現地気圧(0.1hPa)","ID2","平均海面気圧(0.1hPa)","ID3", "最低海面気圧",                          "ID4", "平均気温(0.1degC)","ID5", "最高気温(0.1degC)","ID6", "最低気温(0.1degC)","ID7",                          "平均蒸気圧(0.1hPa)","ID8", "平均相対湿度(%)", "ID9", "最小相対湿度(%)", "ID10",                          "平均風速(0.1m/s)","ID11", "最大風速(0.1m/s)","ID12", "最大風速風向(1(NNE)～16(N))","ID13",                          "最大瞬間風速(0.1m/s)","ID14", "最大瞬間風向(1(NNE)～16(N))", "ID15",                          "平均雲量(0.1)","ID16", "日照時間(0.1時間)", "ID17", "全天日射量(0.1MJ/m2)", "ID18",                          "蒸発量(0.1mm)", "ID19", "日降水量(0.1mm)", "ID20" , "最大1時間降水量(0.1mm)", "ID21",                          "最大10分間降水量(0.1mm)", "ID22", "降雪の深さ日合計(cm)", "ID23",  "日最深積雪(cm)","ID24",                          "天気概況符号1", "ID25", "天気概況符号2", "ID26", "大気現象コード1", "大気現象コード1",                          "大気現象コード2", "大気現象コード3", "大気現象コード4", "大気現象コード5",                          "降水強風時間", "ID27"]
 
@@ -426,7 +584,7 @@ class Met_GWO_daily(Met):
             print("ERROR: start >= end is incorrect.")
             sys.exit()
         Ys, Ye = int(start.strftime("%Y")), int(end.strftime("%Y"))
-        fdir = self.dir + self.stn + "/"  # data dir
+        fdir = self.dirpath + self.stn + "/"  # data dirpath
         print("Data directory path = ", fdir)
         fstart = glob.glob(fdir + self.stn + str(Ys) + ".csv")
         if len(fstart) != 1:
