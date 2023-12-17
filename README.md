@@ -7,7 +7,7 @@ Explanation is given in Japanese as this dataset is provided in Japanese only.
 - Linuxを前提としていますが，pathを修正すればWindowsでも動くはずです．
 - GWOには対応していますが，他は未完成です．
 - これは商用データベースで，既に販売は終了していますが，購入者は[ウェザートーイWEB](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/)でサポート情報を入手できます．詳細は[こちら](https://estuarine.jp/2016/05/gwo/)を参照ください．
-- データの詳細は[GWO](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/)および[AMD](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/)を参照ください．
+- データの詳細は[GWO](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/top5_1.htm)および[AMD](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/top2_1.htm)を参照ください．
 
 ## 使い方
 - **GWO_div_year.ipynb**で，各観測点における全期間のCSVファイル（ファイル名の例：Tokyo1991-2021.csv）を出力します．
