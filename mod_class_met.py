@@ -3,7 +3,7 @@
 # （財）気象業務支援センター「気象データベース」の図化解析用に開発しているが，pandas DataFrameを活用することで，Classの汎用化を目指す．<br>
 # 現在のところ，「地上観測」のみに対応している．「アメダス」は今後対応する予定である．<br>
 # 1991年以降は毎時データで全天日射量あり（一部観測所のみ），1990年以前は3時間データで全天日射量，日照時間，降水量がない
-# #### Author: Jun Sasaki, Coded on Sep. 9, 2017, Revised on January 11, 2019
+# #### Author: Jun Sasaki, coded on 2017-09-09, updated on 2024-07-02
 # ## 課題： 1990年以前の3時間データと全天日射量対応，アメダスデータ対応
 # 1990年以前と1991年以降を同時に読み込むことは可能だが，時間間隔が異なる．任意の時間間隔にリサンプリングできるようにする．<br>
 # 全天日射や欠損値への対応を検討する．<br>
@@ -26,7 +26,7 @@ from matplotlib.dates import date2num, YearLocator, MonthLocator, DayLocator, Da
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
-get_ipython().run_line_magic('matplotlib', 'inline')
+# get_ipython().run_line_magic('matplotlib', 'inline')
 
 
 class Met:
