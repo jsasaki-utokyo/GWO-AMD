@@ -2,6 +2,10 @@
 [GWO](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/) and [AMD](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/) GWO-AMD is a Japan Meteorological Agency's meteorological dataset handling tool.
 Explanation is given in Japanese as this dataset is provided in Japanese only.
 
+## 気象庁互換形式
+- 2022年のデータもウェザートーイWEBのサポートで配布されていますが，気象庁互換形式です．値欄に数値以外の記号が含まれており，要注意です．
+- [**値欄の情報**](https://www.data.jma.go.jp/obd/stats/data/mdrr/man/remark.html)
+
 ## 気象データベース地上観測（GWO）とアメダス（AMD）の準備
 - 気象データベース地上観測（GWO）およびアメダス（AMD）から**SQLViewer7.exe**で切り出した，全地点全期間（ただし，1990年以前と1991年以降の2つのファイルに分割）のCSVファイルを読み込み，観測点別年別のCSVファイルとして切り出す，**Jupyter Notebook**を用意しました．
 - 切り出したCSVの単位は元のデータベースの単位です．[**気象庁互換**](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/top2_11.html)はわかりやすいですが，2022年度以降に採用することとします．すなわち，地点別年別のCSVファイルの形式は2021年以前と2022年以降で異なっており，これらを読み込むコードで対応する方針とします．これは過去の蓄積を最大限生かすためです．この読み込むコードはmod_class_met.pyです．
