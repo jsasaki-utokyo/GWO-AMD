@@ -1,0 +1,33 @@
+name: gwo-amd
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Python version
+  - python>=3.12
+
+  # Core scientific computing
+  - numpy
+  - pandas>=2.0.0
+  - matplotlib
+
+  # Data acquisition and parsing
+  - requests>=2.28.0
+  - lxml>=4.9.0
+  - html5lib>=1.1
+  - beautifulsoup4>=4.11.0
+
+  # Date/time utilities
+  - python-dateutil
+
+  # Jupyter notebook support (for development)
+  - jupyter
+  - notebook
+  - ipykernel
+
+  # Development tools
+  - pip
+
+  # Install package in editable mode
+  - pip:
+    - -e .
