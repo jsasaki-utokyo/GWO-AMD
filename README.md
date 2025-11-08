@@ -1,6 +1,253 @@
 # GWO-AMD
+
+A comprehensive toolkit for handling Japan Meteorological Agency (JMA) meteorological datasets, including legacy commercial databases (GWO/AMD) and modern web data download capabilities.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+
+## Overview
+
+GWO-AMD provides tools for working with three types of JMA meteorological data:
+
+- **GWO (Ground Weather Observatory)** - 気象データベース地上観測: Legacy commercial database with hourly and daily ground observations
+- **AMD (AMeDAS)** - アメダス: Automated Meteorological Data Acquisition System database
+- **JMA etrn Web Downloader**: Modern tool to download hourly meteorological data from JMA's online service
+
+## Quick Start
+
+### Installation
+
+```bash
+# Create conda environment (recommended)
+conda env create -f environment.yml
+conda activate gwo-amd
+
+# Or install with pip
+pip install -e .
+```
+
+### Basic Usage
+
+```bash
+# Download JMA weather data
+jma-download --year 2023 --station tokyo
+
+# Or use Python directly
+python jma_weather_downloader.py --year 2023 --station tokyo
+
+# Process GWO/AMD data with Python
+python
+>>> from mod_class_met import Met_GWO
+>>> met = Met_GWO("2014-1-1", "2014-6-1", "Tokyo", "/path/to/data/")
+>>> df = met.df  # Get processed DataFrame
+```
+
+## Features
+
+### JMA Web Data Downloader
+
+Downloads historical hourly weather data directly from [JMA's etrn service](https://www.data.jma.go.jp/stats/etrn/index.php).
+
+**Key Features:**
+- Preset stations: Tokyo, Yokohama, Chiba, Osaka, Nagoya, Fukuoka, Sapporo
+- Custom station support via `prec_no` (prefecture code) and `block_no` (station code)
+- Bulk downloads for multiple years
+- Automatic retry with exponential backoff
+- Configurable delay to reduce server load (default: 1.0s, minimum 0.5s recommended)
+
+**Available Data:**
+- Atmospheric pressure (local and sea level)
+- Precipitation
+- Temperature and dew point temperature
+- Vapor pressure and humidity
+- Wind direction and speed
+- Sunshine duration
+- Solar radiation
+- Snowfall and snow depth
+- Weather conditions and cloud cover
+- Visibility
+
+**Usage Examples:**
+
+```bash
+# Download single year
+jma-download --year 2023 --station tokyo
+
+# Download multiple years
+jma-download --year 2020 2021 2022 2023 --station osaka
+
+# Custom station with prefecture and block codes
+jma-download --year 2023 --prec_no 44 --block_no 47662 --name 東京
+
+# Adjust request delay (seconds)
+jma-download --year 2023 --station tokyo --delay 0.5 --output ./data
+```
+
+**Available Preset Stations:**
+
+| Key      | Station (地点名) | prec_no | block_no |
+|----------|------------------|---------|----------|
+| tokyo    | 東京             | 44      | 47662    |
+| yokohama | 横浜             | 46      | 47670    |
+| chiba    | 千葉             | 45      | 47682    |
+| osaka    | 大阪             | 62      | 47772    |
+| nagoya   | 名古屋           | 51      | 47636    |
+| fukuoka  | 福岡             | 82      | 47807    |
+| sapporo  | 札幌             | 14      | 47412    |
+
+To find codes for other stations, visit the [JMA etrn service](https://www.data.jma.go.jp/stats/etrn/index.php) and check the `prec_no` and `block_no` parameters in the URL.
+
+### GWO/AMD Database Processing
+
+The `mod_class_met.py` module provides comprehensive classes for processing legacy commercial meteorological databases.
+
+**Core Classes:**
+
+- **`Met_GWO`**: Hourly data processing with automatic interpolation and unit conversion
+  - Handles temporal gaps (3-hour data ≤1990, 1-hour data 1991+)
+  - RMK-based quality control (remark codes 0-9)
+  - Missing value detection and interpolation
+
+- **`Met_GWO_check`**: Data quality validation (e.g., detects missing rows)
+
+- **`Met_GWO_daily`**: Daily aggregated data processing
+  - Special handling for solar radiation unit changes (1961/1981/2010)
+  - Sea level pressure corrections (1961-2002)
+
+- **`Data1D` / `Plot1D`**: Time series visualization with scalar/vector support
+
+**Python Usage:**
+
+```python
+from mod_class_met import Met_GWO
+
+# Load hourly data
+met = Met_GWO(
+    datetime_ini="2014-1-1 00:00:00",
+    datetime_end="2014-6-1 00:00:00",
+    stn="Tokyo",
+    dirpath="/path/to/JMA_DataBase/GWO/Hourly/"
+)
+
+# Access DataFrames
+df_original = met.df_org        # Raw data
+df_interpolated = met.df_interp # Interpolated at original frequency
+df_hourly = met.df              # Uniform 1-hour intervals
+
+# Export to CSV
+met.to_csv(df_hourly, "./tokyo_2014.csv")
+```
+
+### Jupyter Notebook Tools
+
+- **`GWO_multiple_stns_to_stn.ipynb`**: Extract per-station CSV files from SQLViewer7.exe exports
+- **`GWO_div_year.ipynb`**: Split station CSV files into yearly files
+- **`run_hourly_met.ipynb`**: Plot and analyze hourly meteorological data
+- **`run_daily_met.ipynb`**: Process daily aggregated data
+- **`dev_class_met.ipynb`**: Development and testing notebook
+
+## Data Format Notes
+
+### RMK (Remark) Codes
+
+Quality control codes (0-9) indicate data reliability:
+
+- **0**: Observation value not created
+- **1**: Missing observation
+- **2**: Not observed (e.g., nighttime for solar radiation)
+- **3**: Daily extreme value below true value / estimated value
+- **4**: Daily extreme value above true value / uses regional data
+- **5**: Contains estimated values / 24-hour average includes missing values
+- **6**: No corresponding phenomenon occurred
+- **7**: Daily extreme occurred on previous day
+- **8**: Normal observation value (reliable)
+- **9**: Daily extreme occurred on next day / auto-retrieved value (≤1990)
+
+See [JMA's official documentation](https://www.data.jma.go.jp/obd/stats/data/mdrr/man/remark.html) for details.
+
+### Temporal Data Structure
+
+- **1961-1990**: 3-hour intervals (03:00, 06:00, ..., 00:00); no sunshine/solar/precipitation data
+- **1991+**: 1-hour intervals (01:00, 02:00, ..., 00:00)
+- **Cloud cover/weather**: Always 3-hour intervals (03:00, 06:00, ..., 21:00)
+
+### Unit Conversions
+
+The `Met_GWO` class automatically converts units:
+
+| Parameter              | Original Unit    | Converted Unit |
+|------------------------|------------------|----------------|
+| Pressure               | 0.1 hPa          | hPa            |
+| Temperature            | 0.1°C            | °C             |
+| Humidity               | %                | 0-1            |
+| Wind direction         | 1-16 code        | degrees (0-360)|
+| Wind speed             | 0.1 m/s          | m/s            |
+| Cloud cover            | 0-10             | 0-1            |
+| Sunshine hours         | 0.1 h            | h              |
+| Solar radiation        | 0.01 MJ/m²/h     | W/m²           |
+
+### Special Considerations
+
+**Solar Radiation Units (Daily Data):**
+- 1961-1980: 1 cal/cm²
+- 1981-2009: 0.1 MJ/m²
+- 2010+: 0.01 MJ/m²
+
+**Sea Level Pressure (1961-2002):**
+- Values ≥10000 have 10000 subtracted; add 10000 for correction
+
+**Known Data Issues:**
+- Chiba 2010-2011: Missing rows in hourly data (use `Met_GWO_check` for validation)
+
+## Testing
+
+```bash
+# Test JMA downloader with single day
+python test_jma_downloader.py
+
+# Test weekly data download
+python test_jma_week.py
+```
+
+## Documentation
+
+For detailed implementation guidance, see [CLAUDE.md](CLAUDE.md).
+
+For Japanese documentation on the JMA downloader, see [JMA_DOWNLOADER_README.md](JMA_DOWNLOADER_README.md).
+
+## About GWO/AMD Databases
+
+The GWO (Ground Weather Observatory) and AMD (AMeDAS) databases are legacy commercial products from the Japan Meteorological Business Support Center. While no longer sold, purchasers can access support information at [Weather Toy WEB](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/).
+
+- [GWO Database Details](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/top5_1.htm)
+- [AMD Database Details](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/top2_1.htm)
+- [More Information](https://estuarine.jp/2016/05/gwo/)
+
+**Note**: The 2022+ data from Weather Toy WEB uses "JMA-compatible format" (気象庁互換形式) with different units than earlier data. The `mod_class_met.py` module handles both formats.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+**Note**: Meteorological data copyright belongs to the Japan Meteorological Agency. Please comply with [JMA's terms of use](https://www.jma.go.jp/jma/kishou/info/coment.html).
+
+## References
+
+- [JMA Historical Weather Data Search](https://www.data.jma.go.jp/stats/etrn/index.php)
+- [JMA Data Remark Codes](https://www.data.jma.go.jp/obd/stats/data/mdrr/man/remark.html)
+- [JMA Website Terms of Use](https://www.jma.go.jp/jma/kishou/info/coment.html)
+
+## Author
+
+Jun Sasaki (coded on 2017-09-09, updated on 2024-07-02)
+
+---
+
+<details>
+<summary><b>日本語版 README (Original Japanese README)</b></summary>
+
+# GWO-AMD
 [GWO](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/) and [AMD](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/) GWO-AMD is a Japan Meteorological Agency's meteorological dataset handling tool.
-Explanation is given in Japanese as this dataset is provided in Japanese only.
 
 ## 気象庁互換形式
 - 2022年のデータもウェザートーイWEBのサポートで配布されていますが，気象庁互換形式です．値欄に数値以外の記号が含まれており，要注意です．
@@ -62,3 +309,4 @@ Explanation is given in Japanese as this dataset is provided in Japanese only.
 dirpath = "/mnt/d/dat/met/JMA_DataBase/GWO/Hourly/"
 ```
 
+</details>
