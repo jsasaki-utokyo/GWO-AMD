@@ -26,6 +26,23 @@ conda activate gwo-amd
 pip install -e .
 ```
 
+### Data Directory Configuration
+
+Configure data paths using environment variables (recommended):
+
+```bash
+# Copy example configuration
+cp .env.example .env
+
+# Edit .env with your paths
+# DATA_DIR=/mnt/d/Data
+
+# Verify configuration
+python config.py
+```
+
+See [CONFIGURATION.md](CONFIGURATION.md) for detailed configuration options.
+
 ### Basic Usage
 
 ```bash

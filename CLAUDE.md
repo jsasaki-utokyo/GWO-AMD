@@ -19,10 +19,27 @@ The project includes both legacy commercial database handlers (GWO/AMD) and a mo
 conda env create -f environment.yml
 conda activate gwo-amd
 
+# Configure data directories
+cp .env.example .env
+# Edit .env to set DATA_DIR=/your/data/path
+
+# Verify configuration
+python config.py
+
 # Or manually install dependencies
 pip install -r requirements_jma_downloader.txt
 pip install -e .
 ```
+
+### Configuration
+
+The project uses environment variables for data directory configuration via the `config.py` module:
+
+- **`.env` file**: Set `DATA_DIR` and other paths (recommended)
+- **Conda environment variables**: `conda env config vars set DATA_DIR=/path/to/data`
+- **Shell environment**: `export DATA_DIR=/path/to/data`
+
+See [CONFIGURATION.md](CONFIGURATION.md) for detailed setup instructions.
 
 ### Testing
 ```bash

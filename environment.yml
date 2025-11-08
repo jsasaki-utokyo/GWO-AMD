@@ -20,6 +20,9 @@ dependencies:
   # Date/time utilities
   - python-dateutil
 
+  # Configuration management
+  - python-dotenv
+
   # Jupyter notebook support (for development)
   - jupyter
   - notebook

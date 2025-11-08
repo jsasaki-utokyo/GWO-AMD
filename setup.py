@@ -25,6 +25,7 @@ setup(
         "jma_weather_downloader",
         "test_jma_downloader",
         "test_jma_week",
+        "config",
     ],
     python_requires=">=3.12",
     install_requires=[
@@ -36,6 +37,7 @@ setup(
         "html5lib>=1.1",
         "beautifulsoup4>=4.11.0",
         "python-dateutil",
+        "python-dotenv",
     ],
     extras_require={
         "dev": [
