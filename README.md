@@ -243,7 +243,9 @@ Example: jma_data/Tokyo/Tokyo2023.csv
 
 Each row in the GWO/AMD hourly CSV uses 33 columns (no header). The format below applies to
 the post-1990 "hourly" files (1991 onward). Earlier data (≤1990) uses 3-hour intervals and fewer
-columns, so some fields may be absent or padded when older CSVs are encountered. The table maps
+columns, so some fields may be absent or padded when older CSVs are encountered. Japan Meteorological
+Business Support Center documentation also notes that since 1991 wind direction and speed are recorded
+hourly, but planned maintenance or outages mark those hours as "not observed" (RMK=2). The table maps
 column numbers to their field names and meanings:
 
 | Col | Field | Description |

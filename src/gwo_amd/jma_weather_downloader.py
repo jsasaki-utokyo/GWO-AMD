@@ -315,6 +315,10 @@ def convert_to_gwo_format(df_jma, station_metadata):
             humidity, humidity_rmk = to_int_scaled_with_quality(row.iloc[7], 1)  # % (no scaling)
             wind_speed, wind_speed_rmk = to_int_scaled_with_quality(row.iloc[8], 10)
             wind_dir, wind_dir_rmk = wind_dir_code_with_quality(row.iloc[9])
+            if wind_dir_rmk == 2:
+                wind_dir = None
+            if wind_speed_rmk == 2:
+                wind_speed = None
 
             sunshine, sunshine_rmk = (
                 to_int_scaled_with_quality(row.iloc[10], 10) if len(row) > 10 else (None, 2)
