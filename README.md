@@ -200,19 +200,22 @@ This makes it easy to copy downloaded data into your existing GWO database:
 cp -r jma_data/* $DATA_DIR/met/JMA_DataBase/GWO/Hourly/
 ```
 
-**Available Preset Stations:**
+### Station Catalog
 
-| Key      | Station (地点名) | prec_no | block_no |
-|----------|------------------|---------|----------|
-| tokyo    | 東京             | 44      | 47662    |
-| yokohama | 横浜             | 46      | 47670    |
-| chiba    | 千葉             | 45      | 47682    |
-| osaka    | 大阪             | 62      | 47772    |
-| nagoya   | 名古屋           | 51      | 47636    |
-| fukuoka  | 福岡             | 82      | 47807    |
-| sapporo  | 札幌             | 14      | 47412    |
+`stations.yaml` lists every supported GWO/AMD station (currently 152 entries) with `prec_no`, `block_no`, coordinates, and time-bounded remarks derived from `gwo_stn.csv`, `smaster.index`, and `ame_master.pdf`. Use these helpers to explore or customize the catalog:
 
-To find codes for other stations, visit the [JMA etrn service](https://www.data.jma.go.jp/stats/etrn/index.php) and check the `prec_no` and `block_no` parameters in the URL.
+- Show all keys and metadata: `python jma_weather_downloader.py --list-stations`
+- Point to a custom catalog: `python jma_weather_downloader.py --stations-config my_stations.yaml ...`
+- Regenerate the default catalog after editing source CSVs: `python scripts/build_station_catalog.py`
+
+When you download data, the script automatically prints any special remarks whose date ranges intersect the requested year so you know about relocations or instrumentation changes that might affect the dataset.
+
+**Quick sanity check**  
+After creating/activating the `gwo-amd` conda environment, you can verify the catalog wiring without downloading data:
+
+```bash
+conda run --no-capture-output -n gwo-amd python jma_weather_downloader.py --list-stations | head
+```
 
 ### GWO/AMD Database Processing
 

@@ -54,18 +54,19 @@ python jma_weather_downloader.py --year 2023 --prec_no 44 --block_no 47662 --nam
 - `--name`: 観測地点名（カスタム地点）
 - `--output`: 出力ディレクトリ（デフォルト: jma_data）
 - `--delay`: リクエスト間の待機時間（秒、デフォルト: 1.0）
+- `--gwo-format`: GWO形式（33列、雲量補間あり）で保存
+- `--stations-config`: `stations.yaml` の代わりに使用するカタログファイル
+- `--list-stations`: 利用可能な観測地点を一覧表示
 
-## プリセット観測地点
+## 観測地点カタログ
 
-| キー | 地点名 | prec_no | block_no |
-|------|--------|---------|----------|
-| tokyo | 東京 | 44 | 47662 |
-| yokohama | 横浜 | 46 | 47670 |
-| chiba | 千葉 | 45 | 47682 |
-| osaka | 大阪 | 62 | 47772 |
-| nagoya | 名古屋 | 51 | 47636 |
-| fukuoka | 福岡 | 82 | 47807 |
-| sapporo | 札幌 | 14 | 47412 |
+`stations.yaml` には GWO/AMD で取り扱う 150 以上の観測地点が記載されており、`prec_no` / `block_no`、座標、`gwo_stn.csv` と `smaster.index` から抽出した特記事項（年月範囲付き）が含まれます。
+
+- 一覧表示: `python jma_weather_downloader.py --list-stations`
+- 別の YAML を使用: `python jma_weather_downloader.py --stations-config custom.yaml ...`
+- カタログ再生成: `python scripts/build_station_catalog.py`
+
+ダウンロード時には対象年と重なる特記事項が `[info] Special remarks ...` として表示され、観測所の移転や装置変更を確認できます。
 
 ## 観測地点コードの調べ方
 

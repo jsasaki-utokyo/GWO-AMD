@@ -38,6 +38,7 @@ setup(
         "beautifulsoup4>=4.11.0",
         "python-dateutil",
         "python-dotenv",
+        "PyYAML>=6.0",
     ],
     extras_require={
         "dev": [
@@ -46,6 +47,9 @@ setup(
             "ipykernel",
         ],
     },
+    data_files=[
+        ("", ["stations.yaml"]),
+    ],
     entry_points={
         "console_scripts": [
             "jma-download=jma_weather_downloader:main",

@@ -18,59 +18,108 @@ from calendar import monthrange
 import requests
 import pandas as pd
 import numpy as np
+import yaml
 from io import StringIO
 
 # 気象庁 etrn サービスのベースURL
 # 時別値（hourly data）のエンドポイント
 ETRN_BASE_URL = "https://www.data.jma.go.jp/obd/stats/etrn/view/hourly_s1.php"
 
-# 主要観測地点の定義
-# prec_no: 都道府県番号, block_no: 観測地点番号
-# name: 日本語名, name_en: 英語名（ディレクトリ名とファイル名に使用）
-STATIONS = {
-    "tokyo": {
-        "name": "東京",
-        "name_en": "Tokyo",
-        "prec_no": "44",
-        "block_no": "47662"
-    },
-    "yokohama": {
-        "name": "横浜",
-        "name_en": "Yokohama",
-        "prec_no": "46",
-        "block_no": "47670"
-    },
-    "chiba": {
-        "name": "千葉",
-        "name_en": "Chiba",
-        "prec_no": "45",
-        "block_no": "47682"
-    },
-    "osaka": {
-        "name": "大阪",
-        "name_en": "Osaka",
-        "prec_no": "62",
-        "block_no": "47772"
-    },
-    "nagoya": {
-        "name": "名古屋",
-        "name_en": "Nagoya",
-        "prec_no": "51",
-        "block_no": "47636"
-    },
-    "fukuoka": {
-        "name": "福岡",
-        "name_en": "Fukuoka",
-        "prec_no": "82",
-        "block_no": "47807"
-    },
-    "sapporo": {
-        "name": "札幌",
-        "name_en": "Sapporo",
-        "prec_no": "14",
-        "block_no": "47412"
-    },
-}
+DEFAULT_STATION_CATALOG = Path(__file__).with_name("stations.yaml")
+
+
+def load_station_catalog(config_path=None):
+    """Load stations.yaml and normalize keys (lowercase)."""
+    path = Path(config_path) if config_path else DEFAULT_STATION_CATALOG
+    if not path.exists():
+        print(f"Warning: Station catalog not found at {path}")
+        return {}, path
+
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        print(f"Warning: Failed to load station catalog ({path}): {exc}")
+        return {}, path
+
+    stations = data.get("stations", {})
+    normalized = {}
+    for key, info in stations.items():
+        normalized[key.lower()] = info
+    return normalized, path
+
+
+def _parse_iso_date(value):
+    if not value:
+        return None
+    return dt.datetime.strptime(value, "%Y-%m-%d").date()
+
+
+def collect_relevant_remarks(station_metadata, year):
+    if not station_metadata or not station_metadata.get("remarks"):
+        return []
+
+    year_start = dt.date(year, 1, 1)
+    year_end = dt.date(year, 12, 31)
+    remarks = []
+    seen = set()
+
+    for remark in station_metadata["remarks"]:
+        note = (remark.get("note") or "").strip()
+        if not note:
+            continue
+        start_label = remark.get("start_date")
+        end_label = remark.get("end_date")
+        start_bound = _parse_iso_date(start_label) or dt.date(1900, 1, 1)
+        end_bound = _parse_iso_date(end_label) or dt.date(9999, 12, 31)
+        if start_bound <= year_end and end_bound >= year_start:
+            key = (note, start_label, end_label)
+            if key in seen:
+                continue
+            seen.add(key)
+            remarks.append(
+                {
+                    "note": note,
+                    "start_label": start_label or "unknown",
+                    "end_label": end_label or "present",
+                    "source": remark.get("source", "smaster.index"),
+                }
+            )
+    return remarks
+
+
+def print_special_remarks(station_metadata, year):
+    remarks = collect_relevant_remarks(station_metadata, year)
+    if not remarks:
+        return
+
+    station_label = station_metadata.get("name_en", "station")
+    print(f"[info] Special remarks for {station_label} ({year}):")
+    for remark in remarks:
+        print(
+            f"  - [{remark['start_label']} – {remark['end_label']}] "
+            f"{remark['note']} ({remark['source']})"
+        )
+
+
+def print_station_list(catalog, catalog_path):
+    if not catalog:
+        print(f"No stations found in {catalog_path}")
+        return
+
+    header = f"{'Key':<20} {'JP Name':<10} {'Prefecture':<14} {'prec':>5} {'block':>7} {'id':>5}"
+    print(f"Station catalog ({len(catalog)} entries) from {catalog_path}:")
+    print(header)
+    print("-" * len(header))
+    for key in sorted(catalog):
+        info = catalog[key]
+        print(
+            f"{key:<20} "
+            f"{info.get('name_jp', ''):<10} "
+            f"{info.get('prefecture_jp', ''):<14} "
+            f"{str(info.get('prec_no', '')):>5} "
+            f"{str(info.get('block_no', '')):>7} "
+            f"{str(info.get('station_id', '')):>5}"
+        )
 
 # Wind direction mapping for GWO format conversion
 WIND_DIR_MAP = {
@@ -81,14 +130,7 @@ WIND_DIR_MAP = {
     '静穏': 0, 'Calm': 0,
 }
 
-# Station ID mapping for GWO format
-STATION_ID_MAP = {
-    'Tokyo': '662', 'Yokohama': '671', 'Chiba': '682',
-    'Osaka': '772', 'Nagoya': '636', 'Fukuoka': '807', 'Sapporo': '412',
-}
-
-
-def convert_to_gwo_format(df_jma, station_name_en, station_name_jp):
+def convert_to_gwo_format(df_jma, station_metadata):
     """
     Convert JMA DataFrame to GWO format (33 columns, no header)
 
@@ -96,17 +138,17 @@ def convert_to_gwo_format(df_jma, station_name_en, station_name_jp):
     ----------
     df_jma : pd.DataFrame
         DataFrame from JMA (with headers)
-    station_name_en : str
-        English station name
-    station_name_jp : str
-        Japanese station name
+    station_metadata : dict
+        Station metadata containing name/id information
 
     Returns
     -------
     pd.DataFrame
         GWO-formatted DataFrame
     """
-    station_id = STATION_ID_MAP.get(station_name_en, '999')
+    station_name_en = station_metadata.get("name_en", "station")
+    station_name_jp = station_metadata.get("name_jp", station_name_en)
+    station_id = str(station_metadata.get("station_id", "999"))
 
     gwo_rows = []
 
@@ -393,7 +435,17 @@ def download_daily_hourly_data(prec_no, block_no, year, month, day, timeout=30, 
             raise Exception(f"Error parsing data for {year}/{month}/{day}: {e}")
 
 
-def download_yearly_data(prec_no, block_no, station_name, station_name_en, year, output_dir, delay=1.0, gwo_format=False):
+def download_yearly_data(
+    prec_no,
+    block_no,
+    station_name,
+    station_name_en,
+    year,
+    output_dir,
+    delay=1.0,
+    gwo_format=False,
+    station_metadata=None,
+):
     """
     指定された年の全月データをダウンロードして結合
     GWO/AMD互換のディレクトリ構造で保存: {output_dir}/{StationName}/{StationName}{Year}.csv
@@ -416,6 +468,8 @@ def download_yearly_data(prec_no, block_no, station_name, station_name_en, year,
         リクエスト間の待機時間（秒）気象庁サーバーへの負荷軽減のため
     gwo_format : bool
         True の場合、GWO 形式（33列、ヘッダーなし）に変換して保存
+    station_metadata : dict, optional
+        station_id や remarks などの追加情報
     """
     output_dir = Path(output_dir)
 
@@ -472,7 +526,13 @@ def download_yearly_data(prec_no, block_no, station_name, station_name_en, year,
         missing_stats = None
         if gwo_format:
             print("Converting to GWO format (33 columns, no header)...")
-            combined_df, missing_stats = convert_to_gwo_format(combined_df, station_name_en, station_name)
+            metadata = station_metadata or {
+                "name_en": station_name_en,
+                "name_jp": station_name,
+                "station_id": "999",
+                "remarks": [],
+            }
+            combined_df, missing_stats = convert_to_gwo_format(combined_df, metadata)
             encoding = "utf-8"  # GWO format uses UTF-8 without BOM
             header = False
             index = False
@@ -561,8 +621,7 @@ Output structure:
   JMA format (default): 20 columns with headers, direct values (hPa, °C, m/s)
   GWO format (--gwo-format): 33 columns, no headers, scaled values (×0.1), with RMK codes
 
-Available preset stations:
-  tokyo, yokohama, chiba, osaka, nagoya, fukuoka, sapporo
+Use --list-stations to inspect all catalog keys defined in stations.yaml.
         """
     )
 
@@ -570,14 +629,25 @@ Available preset stations:
         "--year",
         type=int,
         nargs="+",
-        required=True,
         help="ダウンロード対象の年（複数指定可能）"
     )
 
     parser.add_argument(
         "--station",
         type=str,
-        help=f"観測地点名（{', '.join(STATIONS.keys())}）（大文字小文字は区別しません / case-insensitive）"
+        help="観測地点名（stations.yamlのキー。大文字小文字は区別しません / case-insensitive）"
+    )
+
+    parser.add_argument(
+        "--stations-config",
+        type=str,
+        help="stations.yamlのカスタムパス（デフォルト: このスクリプトと同じ場所）"
+    )
+
+    parser.add_argument(
+        "--list-stations",
+        action="store_true",
+        help="観測地点の一覧を表示して終了"
     )
 
     parser.add_argument(
@@ -626,31 +696,54 @@ Available preset stations:
 
     args = parser.parse_args()
 
+    station_catalog, catalog_path = load_station_catalog(args.stations_config)
+    if args.list_stations:
+        print_station_list(station_catalog, catalog_path)
+        return
+
+    if not args.year:
+        parser.error("--year は必須です（--list-stations で一覧表示のみ実行可能）")
+
     # 観測地点の設定
+    station_metadata = None
     if args.station:
         # Case-insensitive station matching
         station_key = args.station.lower()
-        if station_key not in STATIONS:
-            print(f"Error: Unknown station '{args.station}'")
-            print(f"Available stations (case-insensitive): {', '.join(STATIONS.keys())}")
+        if station_key not in station_catalog:
+            print(
+                f"Error: Unknown station '{args.station}'. "
+                f"Use --list-stations to inspect available keys ({catalog_path})."
+            )
             sys.exit(1)
 
-        station_info = STATIONS[station_key]
-        prec_no = station_info["prec_no"]
-        block_no = station_info["block_no"]
-        station_name = station_info["name"]
-        station_name_en = station_info["name_en"]
+        station_info = station_catalog[station_key]
+        prec_no = str(station_info["prec_no"])
+        block_no = str(station_info["block_no"])
+        station_name = station_info.get("name_jp", station_info.get("name_en", args.station))
+        station_name_en = station_info.get("name_en", args.station)
+        station_metadata = {
+            "name_en": station_name_en,
+            "name_jp": station_name,
+            "station_id": str(station_info.get("station_id", "999")),
+            "remarks": station_info.get("remarks", []),
+        }
     elif args.prec_no and args.block_no and args.name:
         prec_no = args.prec_no
         block_no = args.block_no
         station_name = args.name
-        # カスタム地点の場合、英語名が指定されていない場合は日本語名を使用
         station_name_en = args.name_en if args.name_en else args.name
+        station_metadata = {
+            "name_en": station_name_en,
+            "name_jp": station_name,
+            "station_id": "999",
+            "remarks": [],
+        }
     else:
         parser.error("--station または (--prec_no, --block_no, --name) のセットを指定してください")
 
     # 各年についてダウンロード
     for year in args.year:
+        print_special_remarks(station_metadata, year)
         try:
             download_yearly_data(
                 prec_no=prec_no,
@@ -660,7 +753,8 @@ Available preset stations:
                 year=year,
                 output_dir=args.output,
                 delay=args.delay,
-                gwo_format=args.gwo_format
+                gwo_format=args.gwo_format,
+                station_metadata=station_metadata,
             )
         except Exception as e:
             print(f"\n[ERROR] Failed to download {station_name} ({year}): {e}\n")
