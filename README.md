@@ -241,8 +241,10 @@ Example: jma_data/Tokyo/Tokyo2023.csv
 
 ### GWO Hourly CSV Column Reference
 
-Each row in the GWO/AMD hourly CSV uses 33 columns (no header). The table below maps column
-numbers to their field names and meanings:
+Each row in the GWO/AMD hourly CSV uses 33 columns (no header). The format below applies to
+the post-1990 "hourly" files (1991 onward). Earlier data (≤1990) uses 3-hour intervals and fewer
+columns, so some fields may be absent or padded when older CSVs are encountered. The table maps
+column numbers to their field names and meanings:
 
 | Col | Field | Description |
 |----:|-------|-------------|
