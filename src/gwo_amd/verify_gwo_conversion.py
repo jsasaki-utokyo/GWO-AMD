@@ -7,14 +7,15 @@ Issues warnings for known bugs in original GWO data (e.g., missing cloud interpo
 
 Usage:
     python -m gwo_amd.verify_gwo_conversion <converted_file> <original_file>
-    python -m gwo_amd.verify_gwo_conversion jma_data/Tokyo/Tokyo2019.csv /path/to/GWO/Hourly/Tokyo/Tokyo2019.csv
+    python -m gwo_amd.verify_gwo_conversion jma_data/Tokyo/Tokyo2019.csv \
+        /path/to/GWO/Hourly/Tokyo/Tokyo2019.csv
 """
 
 import sys
-import pandas as pd
-import numpy as np
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 
 # Column definitions for GWO format (33 columns, 0-indexed)
 GWO_COLUMNS = [
@@ -78,14 +79,20 @@ def check_cloud_interpolation_bug(converted, original):
     sample_indices = cloud_diffs[cloud_diffs].index[:3].tolist()
     samples = []
     for idx in sample_indices:
-        samples.append({
-            'row': idx + 1,
-            'date': f"{converted.iloc[idx, 3]}-{converted.iloc[idx, 4]:02d}-{converted.iloc[idx, 5]:02d}",
-            'hour': converted.iloc[idx, 6],
-            'conv_cloud': converted.iloc[idx, 21],
-            'orig_cloud': original.iloc[idx, 21],
-            'rmk': converted.iloc[idx, 22]
-        })
+        samples.append(
+            {
+                "row": idx + 1,
+                "date": (
+                    f"{converted.iloc[idx, 3]}-"
+                    f"{converted.iloc[idx, 4]:02d}-"
+                    f"{converted.iloc[idx, 5]:02d}"
+                ),
+                "hour": converted.iloc[idx, 6],
+                "conv_cloud": converted.iloc[idx, 21],
+                "orig_cloud": original.iloc[idx, 21],
+                "rmk": converted.iloc[idx, 22],
+            }
+        )
 
     has_bug = bug_count > 0
     return has_bug, diff_count, samples
@@ -152,7 +159,9 @@ def verify_gwo_conversion(converted_file, original_file):
     print("-"*80)
 
     # Check cloud interpolation bug
-    has_cloud_bug, cloud_diff_count, cloud_samples = check_cloud_interpolation_bug(converted, original)
+    has_cloud_bug, cloud_diff_count, cloud_samples = check_cloud_interpolation_bug(
+        converted, original
+    )
 
     if has_cloud_bug:
         print("⚠️  CLOUD INTERPOLATION BUG DETECTED in original GWO data!")
@@ -164,12 +173,20 @@ def verify_gwo_conversion(converted_file, original_file):
         print("   The converted data correctly interpolates cloud values between observations,")
         print("   providing better data continuity.")
         print()
-        print(f"   Affected rows: {cloud_diff_count:,} ({cloud_diff_count*100/len(converted):.1f}%)")
+        affected_pct = cloud_diff_count * 100 / len(converted)
+        print(f"   Affected rows: {cloud_diff_count:,} ({affected_pct:.1f}%)")
         print()
         print("   Sample differences:")
-        for s in cloud_samples:
-            print(f"     Row {s['row']:5d} ({s['date']} {s['hour']:02d}:00): "
-                  f"Converted={s['conv_cloud']:2d}, Original={s['orig_cloud']:2d} (should be interpolated)")
+        for sample in cloud_samples:
+            row = sample["row"]
+            date = sample["date"]
+            hour = sample["hour"]
+            conv = sample["conv_cloud"]
+            orig = sample["orig_cloud"]
+            print(
+                f"     Row {row:5d} ({date} {hour:02d}:00): "
+                f"Converted={conv:2d}, Original={orig:2d} (should be interpolated)"
+            )
         print()
         print("   ✓ This warning will disappear when you correct the GWO CSV files.")
         print()
@@ -184,7 +201,7 @@ def verify_gwo_conversion(converted_file, original_file):
 
     # Check if data matches (excluding known issues)
     core_data_matches = True
-    for i, col_name, diff_count, pct in significant_diffs:
+    for _idx, col_name, diff_count, pct in significant_diffs:
         if col_name not in ["cloud", "weather", "weather_rmk"]:
             core_data_matches = False
             print(f"⚠️  Unexpected difference in {col_name}: {diff_count} rows ({pct:.2f}%)")

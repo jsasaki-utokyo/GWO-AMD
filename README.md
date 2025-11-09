@@ -23,7 +23,7 @@ conda env create -f environment.yml
 conda activate gwo-amd
 
 # Or install with pip
-pip install -e .
+pip install -e .[dev]
 ```
 
 ### Data Directory Configuration
@@ -54,8 +54,10 @@ python -m gwo_amd.jma_weather_downloader --year 2023 --station tokyo
 
 # Process GWO/AMD data with Python
 python
->>> from mod_class_met import Met_GWO
->>> met = Met_GWO("2014-1-1", "2014-6-1", "Tokyo", "/path/to/data/")
+>>> from pathlib import Path
+>>> from gwo_amd.mod_class_met import Met_GWO
+>>> gwo_hourly = Path("/mnt/c/Data/met/JMA_DataBase/GWO/Hourly")
+>>> met = Met_GWO("2014-1-1", "2014-6-1", "Tokyo", str(gwo_hourly))
 >>> df = met.df  # Get processed DataFrame
 ```
 
@@ -150,6 +152,29 @@ conda run --no-capture-output -n gwo-amd pytest
 ```
 
 The suite exercises station catalog loading, remark filtering, and the JMA→GWO scaling pipeline so regressions surface quickly.
+
+#### Live download checks (optional)
+
+Network-dependent smoke tests live under `tests/test_manual_jma_download.py`. They are skipped by default; set `RUN_LIVE_JMA_TESTS=1` to enable them:
+
+```bash
+RUN_LIVE_JMA_TESTS=1 conda run --no-capture-output -n gwo-amd pytest tests/test_manual_jma_download.py
+```
+
+### Development Setup & Linting
+
+```bash
+# Install runtime + dev tooling (pytest, ruff, notebooks)
+pip install -e .[dev]
+
+# Static checks and formatting
+ruff check .
+ruff format .
+```
+
+### Notebook Guidelines
+
+All example notebooks live under `notebooks/` and resolve paths via `$DATA_DIR`. Before committing notebook changes, clear outputs (`jupyter nbconvert --ClearOutputPreprocessor.enabled=True`) or run `nbstripout notebooks/*.ipynb` so diffs stay readable.
 
 **Format Comparison:**
 

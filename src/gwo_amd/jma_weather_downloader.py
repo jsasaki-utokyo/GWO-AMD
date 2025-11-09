@@ -6,21 +6,23 @@ JMA Weather Data Downloader
 
 Usage:
     python -m gwo_amd.jma_weather_downloader --year 2023 --station tokyo
-    python -m gwo_amd.jma_weather_downloader --year 2023 --station tokyo --prec_no 44 --block_no 47662
+    python -m gwo_amd.jma_weather_downloader --year 2023 --station tokyo \
+        --prec_no 44 --block_no 47662
 """
 
 import argparse
 import datetime as dt
 import importlib.resources as pkg_resources
-import requests
-import pandas as pd
-import numpy as np
-import yaml
-from io import StringIO
-from calendar import monthrange
-from pathlib import Path
 import sys
 import time
+from calendar import monthrange
+from io import StringIO
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import requests
+import yaml
 
 # 気象庁 etrn サービスのベースURL
 # 時別値（hourly data）のエンドポイント
@@ -225,7 +227,7 @@ def convert_to_gwo_format(df_jma, station_metadata):
                     cleaned_val = cleaned_val.replace('−', '-')
                     value = float(cleaned_val)
                     return value, quality_code
-                except:
+                except ValueError:
                     return None, 1  # Parse error, treat as missing
 
             def to_float_with_quality(val):
@@ -286,7 +288,7 @@ def convert_to_gwo_format(df_jma, station_metadata):
                     cloud_str = cloud_str.replace('+', '').replace('-', '').replace('−', '')
                     val = float(cloud_str)
                     return int(val) if 0 <= val <= 10 else None, quality
-                except:
+                except ValueError:
                     return None, 2
 
             # Extract values with quality codes (positions based on JMA format)
@@ -299,10 +301,26 @@ def convert_to_gwo_format(df_jma, station_metadata):
             wind_speed, wind_speed_rmk = to_int_scaled_with_quality(row.iloc[8], 10)
             wind_dir, wind_dir_rmk = wind_dir_code_with_quality(row.iloc[9])
 
-            sunshine, sunshine_rmk = to_int_scaled_with_quality(row.iloc[10], 10) if len(row) > 10 else (None, 2)
-            solar, solar_rmk = to_int_scaled_with_quality(row.iloc[11], 100) if len(row) > 11 else (None, 2)
-            precip, precip_rmk = to_int_scaled_with_quality(row.iloc[3], 10) if len(row) > 3 else (None, 2)
-            cloud, cloud_rmk = parse_cloud_with_quality(row.iloc[15]) if len(row) > 15 else (None, 2)
+            sunshine, sunshine_rmk = (
+                to_int_scaled_with_quality(row.iloc[10], 10)
+                if len(row) > 10
+                else (None, 2)
+            )
+            solar, solar_rmk = (
+                to_int_scaled_with_quality(row.iloc[11], 100)
+                if len(row) > 11
+                else (None, 2)
+            )
+            precip, precip_rmk = (
+                to_int_scaled_with_quality(row.iloc[3], 10)
+                if len(row) > 3
+                else (None, 2)
+            )
+            cloud, cloud_rmk = (
+                parse_cloud_with_quality(row.iloc[15])
+                if len(row) > 15
+                else (None, 2)
+            )
 
             # Build GWO row (33 columns)
             gwo_row = [
@@ -333,7 +351,15 @@ def convert_to_gwo_format(df_jma, station_metadata):
 
     # Interpolate cloud cover
     if len(gwo_df) > 0:
-        gwo_df[21] = gwo_df[21].replace({None: np.nan}).interpolate(method='linear').round().clip(0, 10).fillna(0).astype(int)
+        gwo_df[21] = (
+            gwo_df[21]
+            .replace({None: np.nan})
+            .interpolate(method='linear')
+            .round()
+            .clip(0, 10)
+            .fillna(0)
+            .astype(int)
+        )
         # Update RMK for interpolated values (keep as 2 if originally not observed)
         # Actually, keep cloud RMK as 2 since original data didn't have it
 
@@ -343,7 +369,40 @@ def convert_to_gwo_format(df_jma, station_metadata):
         gwo_df[col] = gwo_df[col].fillna(0)
 
     # Ensure integer types for all numeric columns
-    int_columns = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]
+    int_columns = [
+        0,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+    ]
     for col in int_columns:
         if col in gwo_df.columns:
             gwo_df[col] = gwo_df[col].fillna(0).astype(int)
@@ -353,8 +412,12 @@ def convert_to_gwo_format(df_jma, station_metadata):
     total_rows = len(gwo_df)
 
     # Count original cloud observations (before interpolation)
-    cloud_original_missing = sum(1 for idx, row in df_jma.iterrows()
-                                 if len(row) > 15 and (pd.isna(row.iloc[15]) or str(row.iloc[15]).strip() in ['', '--']))
+    cloud_original_missing = sum(
+        1
+        for _, row in df_jma.iterrows()
+        if len(row) > 15
+        and (pd.isna(row.iloc[15]) or str(row.iloc[15]).strip() in ("", "--"))
+    )
 
     # RMK column mapping (0-indexed):
     # Col 9 (idx 8): Local pressure RMK, Col 11 (idx 10): Sea pressure RMK
@@ -445,9 +508,11 @@ def download_daily_hourly_data(prec_no, block_no, year, month, day, timeout=30, 
                 print(f"       Retrying in {wait_time} seconds...")
                 time.sleep(wait_time)
             else:
-                raise Exception(f"Failed to download data after {retry} attempts: {e}")
+                msg = f"Failed to download data after {retry} attempts: {e}"
+                raise RuntimeError(msg) from e
         except Exception as e:
-            raise Exception(f"Error parsing data for {year}/{month}/{day}: {e}")
+            msg = f"Error parsing data for {year}/{month}/{day}: {e}"
+            raise RuntimeError(msg) from e
 
 
 def download_yearly_data(
@@ -566,21 +631,32 @@ def download_yearly_data(
         print(f"SUCCESS: Data saved to {output_file}")
         print(f"Total rows: {len(combined_df)}")
         if gwo_format:
-            print(f"Format: GWO (33 columns, cloud cover interpolated)")
+            print("Format: GWO (33 columns, cloud cover interpolated)")
 
             # Display missing value statistics
             if missing_stats:
-                print(f"\nData Quality Report:")
+                print("\nData Quality Report:")
                 total = missing_stats['total_rows']
 
                 # Core parameters (should have very few missing)
                 core_missing = []
                 if missing_stats['pressure'] > 0:
-                    core_missing.append(f"  Pressure: {missing_stats['pressure']}/{total} missing ({missing_stats['pressure']*100/total:.1f}%)")
+                    pct = missing_stats['pressure'] * 100 / total
+                    core_missing.append(
+                        f"  Pressure: {missing_stats['pressure']}/{total} missing ({pct:.1f}%)"
+                    )
                 if missing_stats['temperature'] > 0:
-                    core_missing.append(f"  Temperature: {missing_stats['temperature']}/{total} missing ({missing_stats['temperature']*100/total:.1f}%)")
+                    pct = missing_stats['temperature'] * 100 / total
+                    temp_msg = (
+                        f"  Temperature: {missing_stats['temperature']}/{total} "
+                        f"missing ({pct:.1f}%)"
+                    )
+                    core_missing.append(temp_msg)
                 if missing_stats['humidity'] > 0:
-                    core_missing.append(f"  Humidity: {missing_stats['humidity']}/{total} missing ({missing_stats['humidity']*100/total:.1f}%)")
+                    pct = missing_stats['humidity'] * 100 / total
+                    core_missing.append(
+                        f"  Humidity: {missing_stats['humidity']}/{total} missing ({pct:.1f}%)"
+                    )
 
                 if core_missing:
                     print("  Core Parameters (unexpected missing):")
@@ -589,14 +665,30 @@ def download_yearly_data(
 
                 # Optional parameters (may have missing values)
                 print("  Optional Parameters:")
-                print(f"  Sunshine: {missing_stats['sunshine']}/{total} not observed ({missing_stats['sunshine']*100/total:.1f}%)")
-                print(f"  Solar radiation: {missing_stats['solar']}/{total} not observed ({missing_stats['solar']*100/total:.1f}%)")
-                print(f"  Precipitation: {missing_stats['precipitation']}/{total} not observed ({missing_stats['precipitation']*100/total:.1f}%)")
+                sun_pct = missing_stats['sunshine'] * 100 / total
+                solar_pct = missing_stats['solar'] * 100 / total
+                precip_pct = missing_stats['precipitation'] * 100 / total
+                print(
+                    f"  Sunshine: {missing_stats['sunshine']}/{total} "
+                    f"not observed ({sun_pct:.1f}%)"
+                )
+                print(
+                    f"  Solar radiation: {missing_stats['solar']}/{total} "
+                    f"not observed ({solar_pct:.1f}%)"
+                )
+                print(
+                    f"  Precipitation: {missing_stats['precipitation']}/{total} "
+                    f"not observed ({precip_pct:.1f}%)"
+                )
 
                 # Cloud cover interpolation report
                 cloud_orig_missing = missing_stats['cloud_original']
                 cloud_coverage = (total - cloud_orig_missing) * 100 / total
-                print(f"  Cloud cover: {total - cloud_orig_missing}/{total} observed ({cloud_coverage:.1f}%), rest interpolated")
+                observed = total - cloud_orig_missing
+                print(
+                    f"  Cloud cover: {observed}/{total} observed "
+                    f"({cloud_coverage:.1f}%), rest interpolated"
+                )
 
         print(f"{'='*60}\n")
 
@@ -624,10 +716,13 @@ Examples:
   python -m gwo_amd.jma_weather_downloader --year 2020 2021 2022 2023 --station osaka
 
   # カスタム観測地点（都道府県番号と地点番号を指定）
-  python -m gwo_amd.jma_weather_downloader --year 2023 --prec_no 44 --block_no 47662 --name 東京 --name_en Tokyo
+  python -m gwo_amd.jma_weather_downloader --year 2023 --prec_no 44 --block_no 47662 \
+      --name 東京 --name_en Tokyo
 
-  # 出力ディレクトリを指定してGWO形式に変換（$DATA_DIR/met/JMA_DataBase/GWO/Hourly に直接コピー可能）
-  python -m gwo_amd.jma_weather_downloader --year 2023 --station tokyo --output ./download --gwo-format
+  # 出力ディレクトリを指定してGWO形式に変換
+  # （$DATA_DIR/met/JMA_DataBase/GWO/Hourly に直接コピー可能）
+  python -m gwo_amd.jma_weather_downloader --year 2023 --station tokyo \
+      --output ./download --gwo-format
 
 Output structure:
   {output_dir}/{StationName}/{StationName}{Year}.csv
@@ -707,7 +802,10 @@ Use --list-stations to inspect all catalog keys defined in stations.yaml.
     parser.add_argument(
         "--gwo-format",
         action="store_true",
-        help="GWO形式に変換（33列、ヘッダーなし、雲量補間あり）Convert to GWO format (33 columns, no header, with cloud cover interpolation)"
+        help=(
+            "GWO形式に変換（33列、ヘッダーなし、雲量補間あり）"
+            "Convert to GWO format (33 columns, no header, with cloud cover interpolation)"
+        )
     )
 
     args = parser.parse_args()
@@ -736,15 +834,17 @@ Use --list-stations to inspect all catalog keys defined in stations.yaml.
                 sys.exit(1)
 
             station_info = station_catalog[station_key]
+            station_name_en = station_info.get("name_en", station_arg)
+            station_name_local = station_info.get("name_jp", station_name_en)
             station_jobs.append(
                 {
                     "prec_no": str(station_info["prec_no"]),
                     "block_no": str(station_info["block_no"]),
-                    "station_name": station_info.get("name_jp", station_info.get("name_en", station_arg)),
-                    "station_name_en": station_info.get("name_en", station_arg),
+                    "station_name": station_name_local,
+                    "station_name_en": station_name_en,
                     "metadata": {
-                        "name_en": station_info.get("name_en", station_arg),
-                        "name_jp": station_info.get("name_jp", station_info.get("name_en", station_arg)),
+                        "name_en": station_name_en,
+                        "name_jp": station_name_local,
                         "station_id": str(station_info.get("station_id", "999")),
                         "remarks": station_info.get("remarks", []),
                     },

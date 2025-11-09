@@ -6,8 +6,6 @@ Converts JMA etrn downloaded data to GWO-compatible format for use with mod_clas
 """
 
 import pandas as pd
-import numpy as np
-from pathlib import Path
 
 # Wind direction mapping: Japanese text to GWO code (1-16)
 # GWO: 0=N/A, 1=NNE, 2=NE, 3=ENE, 4=E, 5=ESE, 6=SE, 7=SSE, 8=S,
@@ -77,11 +75,13 @@ def convert_wind_direction(wind_dir_text):
     return WIND_DIR_MAP.get(wind_dir_text, 0)
 
 
-def convert_value(value, missing_markers=['--', '×', '/', '#']):
+def convert_value(value, missing_markers=None):
     """
     Convert JMA value to numeric, handling missing data markers
     Returns None for missing data
     """
+    if missing_markers is None:
+        missing_markers = ['--', '×', '/', '#']
     if pd.isna(value):
         return None
 
@@ -154,7 +154,7 @@ def jma_to_gwo_format(input_file, output_file, station_name='Tokyo'):
     # Create GWO format DataFrame
     gwo_data = []
 
-    for idx, row in df.iterrows():
+    for _, row in df.iterrows():
         # Extract values
         year = int(row.iloc[17])
         month = int(row.iloc[18])

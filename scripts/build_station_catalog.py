@@ -12,9 +12,8 @@ import csv
 import datetime as dt
 import re
 import unicodedata
-from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import yaml
 
@@ -281,7 +280,10 @@ def apply_overrides(stations: Dict[int, Dict]) -> None:
             entry["prec_no"] = SPECIAL_PREC_OVERRIDES[slug]
             entry.setdefault("prefecture_jp", "沖縄県")
         if "prec_no" not in entry or "prefecture_jp" not in entry:
-            raise ValueError(f"Missing prefecture info for {slug} (station_id={entry['station_id']})")
+            station_id = entry.get("station_id", "unknown")
+            raise ValueError(
+                f"Missing prefecture info for {slug} (station_id={station_id})"
+            )
 
 
 def to_yaml_payload(stations: Dict[int, Dict]) -> Dict:

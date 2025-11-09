@@ -1,5 +1,6 @@
 import pandas as pd
 
+from gwo_amd import jma_to_gwo_converter
 from gwo_amd.jma_weather_downloader import convert_to_gwo_format
 
 
@@ -75,3 +76,18 @@ def test_convert_to_gwo_format_scales_and_handles_markers():
     assert second[27] == 0            # sunshine missing -> 0
     assert second[29] == 0            # solar missing -> 0
     assert second[21] >= 0            # cloud interpolated to numeric
+
+
+def test_jma_to_gwo_converter_reads_sample(fixtures_dir, tmp_path):
+    sample_path = fixtures_dir / "jma_sample.csv"
+    output_path = tmp_path / "converted.csv"
+
+    df = jma_to_gwo_converter.jma_to_gwo_format(
+        input_file=sample_path,
+        output_file=output_path,
+        station_name="Chiba",
+    )
+
+    assert output_path.exists()
+    assert len(df) == 2
+    assert df.iloc[0, 7] == 10123  # local pressure ×10

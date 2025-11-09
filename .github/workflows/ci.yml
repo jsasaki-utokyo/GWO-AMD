@@ -7,24 +7,51 @@ on:
     branches: ["main"]
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements_jma_downloader.txt
+            requirements-dev.txt
+            pyproject.toml
+            setup.cfg
+      - name: Install lint tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+      - name: Ruff lint
+        run: ruff check .
+      - name: Ruff format check
+        run: ruff format --check .
 
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements_jma_downloader.txt
+            pyproject.toml
+            setup.cfg
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements_jma_downloader.txt
-          pip install -e .
-          pip install pytest
-
-      - name: Run tests
+          pip install -e .[test]
+      - name: Run pytest
+        env:
+          RUN_LIVE_JMA_TESTS: "0"
         run: pytest
