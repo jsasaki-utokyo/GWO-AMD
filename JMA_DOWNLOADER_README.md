@@ -30,13 +30,13 @@ pip install -r requirements_jma_downloader.txt
 
 ```bash
 # 東京の2023年データをダウンロード
-python jma_weather_downloader.py --year 2023 --station tokyo
+python -m gwo_amd.jma_weather_downloader --year 2023 --station tokyo
 
 # 東京・大阪の2022-2023年データを一括ダウンロード
-python jma_weather_downloader.py --year 2022 2023 --station tokyo osaka
+python -m gwo_amd.jma_weather_downloader --year 2022 2023 --station tokyo osaka
 
 # 大阪の2020-2023年のデータをダウンロード
-python jma_weather_downloader.py --year 2020 2021 2022 2023 --station osaka
+python -m gwo_amd.jma_weather_downloader --year 2020 2021 2022 2023 --station osaka
 ```
 
 ### カスタム観測地点の指定
@@ -45,7 +45,7 @@ python jma_weather_downloader.py --year 2020 2021 2022 2023 --station osaka
 
 ```bash
 # カスタム観測地点の例
-python jma_weather_downloader.py --year 2023 --prec_no 44 --block_no 47662 --name 東京
+python -m gwo_amd.jma_weather_downloader --year 2023 --prec_no 44 --block_no 47662 --name 東京
 ```
 
 ### オプション
@@ -65,8 +65,8 @@ python jma_weather_downloader.py --year 2023 --prec_no 44 --block_no 47662 --nam
 
 `stations.yaml` には GWO/AMD で取り扱う 150 以上の観測地点が記載されており、`prec_no` / `block_no`、座標、`gwo_stn.csv` と `smaster.index` から抽出した特記事項（年月範囲付き）が含まれます。
 
-- 一覧表示: `python jma_weather_downloader.py --list-stations`
-- 別の YAML を使用: `python jma_weather_downloader.py --stations-config custom.yaml ...`
+- 一覧表示: `python -m gwo_amd.jma_weather_downloader --list-stations`
+- 別の YAML を使用: `python -m gwo_amd.jma_weather_downloader --stations-config custom.yaml ...`
 - カタログ再生成: `python scripts/build_station_catalog.py`
 
 ダウンロード時には対象年と重なる特記事項が `[info] Special remarks ...` として表示され、観測所の移転や装置変更を確認できます。

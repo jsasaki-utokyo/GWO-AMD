@@ -4,8 +4,9 @@
 Setup script for GWO-AMD package
 """
 
-from setuptools import setup, find_packages
 from pathlib import Path
+
+from setuptools import find_packages, setup
 
 # Read the README file
 readme_file = Path(__file__).parent / "README.md"
@@ -20,13 +21,10 @@ setup(
     author="Jun Sasaki",
     url="https://github.com/jsasaki-utokyo/GWO-AMD",
     license="MIT",
-    py_modules=[
-        "mod_class_met",
-        "jma_weather_downloader",
-        "test_jma_downloader",
-        "test_jma_week",
-        "config",
-    ],
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
+    package_data={"gwo_amd": ["data/stations.yaml"]},
+    include_package_data=True,
     python_requires=">=3.12",
     install_requires=[
         "numpy",
@@ -47,12 +45,9 @@ setup(
             "ipykernel",
         ],
     },
-    data_files=[
-        ("", ["stations.yaml"]),
-    ],
     entry_points={
         "console_scripts": [
-            "jma-download=jma_weather_downloader:main",
+            "jma-download=gwo_amd.jma_weather_downloader:main",
         ],
     },
     classifiers=[

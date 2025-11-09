@@ -21,7 +21,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 CSV_PATH = ROOT / "gwo_stn.csv"
 SMASTER_PATH = ROOT / "smaster.index"
-OUTPUT_PATH = ROOT / "stations.yaml"
+OUTPUT_PATH = ROOT / "src" / "gwo_amd" / "data" / "stations.yaml"
 
 # Prefecture / bureau codes from ame_master.pdf (page 4)
 PREF_CODES = {

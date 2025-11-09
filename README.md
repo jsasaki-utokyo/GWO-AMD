@@ -38,7 +38,7 @@ cp .env.example .env
 # DATA_DIR=/mnt/d/Data
 
 # Verify configuration
-python config.py
+python -m gwo_amd.config
 ```
 
 See [CONFIGURATION.md](CONFIGURATION.md) for detailed configuration options.
@@ -49,8 +49,8 @@ See [CONFIGURATION.md](CONFIGURATION.md) for detailed configuration options.
 # Download JMA weather data
 jma-download --year 2023 --station tokyo
 
-# Or use Python directly
-python jma_weather_downloader.py --year 2023 --station tokyo
+# Or use Python directly (module-run style)
+python -m gwo_amd.jma_weather_downloader --year 2023 --station tokyo
 
 # Process GWO/AMD data with Python
 python
@@ -141,6 +141,16 @@ jma-download --year 2020 2021 2022 2023 --station tokyo --gwo-format --output ./
 cp -r ./converted/* $DATA_DIR/met/JMA_DataBase/GWO/Hourly/
 ```
 
+### Running Tests
+
+Before making structural changes, run the automated checks to ensure the core conversion logic and catalog parsing stay intact:
+
+```bash
+conda run --no-capture-output -n gwo-amd pytest
+```
+
+The suite exercises station catalog loading, remark filtering, and the JMA→GWO scaling pipeline so regressions surface quickly.
+
 **Format Comparison:**
 
 | Feature | JMA Format (default) | GWO Format (--gwo-format) |
@@ -212,11 +222,11 @@ cp -r jma_data/* $DATA_DIR/met/JMA_DataBase/GWO/Hourly/
 
 ### Station Catalog
 
-`stations.yaml` lists every supported GWO/AMD station (currently 152 entries) with `prec_no`, `block_no`, coordinates, and time-bounded remarks derived from `gwo_stn.csv`, `smaster.index`, and `ame_master.pdf`. Use these helpers to explore or customize the catalog:
+`src/gwo_amd/data/stations.yaml` lists every supported GWO/AMD station (currently 152 entries) with `prec_no`, `block_no`, coordinates, and time-bounded remarks derived from `gwo_stn.csv`, `smaster.index`, and `ame_master.pdf`. Use these helpers to explore or customize the catalog:
 
-- Show all keys and metadata: `python jma_weather_downloader.py --list-stations`
-- Point to a custom catalog: `python jma_weather_downloader.py --stations-config my_stations.yaml ...`
-- Regenerate the default catalog after editing source CSVs: `python scripts/build_station_catalog.py`
+- Show all keys and metadata: `python -m gwo_amd.jma_weather_downloader --list-stations`
+- Point to a custom catalog: `python -m gwo_amd.jma_weather_downloader --stations-config my_stations.yaml ...`
+- Regenerate the packaged catalog after editing source CSVs: `python scripts/build_station_catalog.py`
 
 When you download data, the script automatically prints any special remarks whose date ranges intersect the requested year so you know about relocations or instrumentation changes that might affect the dataset.
 
@@ -224,7 +234,7 @@ When you download data, the script automatically prints any special remarks whos
 After creating/activating the `gwo-amd` conda environment, you can verify the catalog wiring without downloading data:
 
 ```bash
-conda run --no-capture-output -n gwo-amd python jma_weather_downloader.py --list-stations | head
+conda run --no-capture-output -n gwo-amd python -m gwo_amd.jma_weather_downloader --list-stations | head
 ```
 
 ### GWO/AMD Database Processing
@@ -270,11 +280,11 @@ met.to_csv(df_hourly, "./tokyo_2014.csv")
 
 ### Jupyter Notebook Tools
 
-- **`GWO_multiple_stns_to_stn.ipynb`**: Extract per-station CSV files from SQLViewer7.exe exports
-- **`GWO_div_year.ipynb`**: Split station CSV files into yearly files
-- **`run_hourly_met.ipynb`**: Plot and analyze hourly meteorological data
-- **`run_daily_met.ipynb`**: Process daily aggregated data
-- **`dev_class_met.ipynb`**: Development and testing notebook
+- **`notebooks/GWO_multiple_stns_to_stn.ipynb`**: Extract per-station CSV files from SQLViewer7.exe exports
+- **`notebooks/GWO_div_year.ipynb`**: Split station CSV files into yearly files
+- **`notebooks/run_hourly_met.ipynb`**: Plot and analyze hourly meteorological data
+- **`notebooks/run_daily_met.ipynb`**: Process daily aggregated data
+- **`notebooks/dev_class_met.ipynb`**: Development and testing notebook
 
 ## Data Format Notes
 
@@ -302,7 +312,7 @@ The Japan Meteorological Agency and its data providers have used three distinct 
    - Sparse cloud cover data (3-hour intervals only)
    - Symbols: `--` = phenomenon did not occur (value 0), `×` / `///` = missing observation, `#` = questionable
 
-The `jma_weather_downloader.py` tool downloads data in the modern JMA format (2022+) by default, but can convert to legacy GWO format (2010-2021 compatible) using the `--gwo-format` option.
+The `gwo_amd.jma_weather_downloader` tool downloads data in the modern JMA format (2022+) by default, but can convert to legacy GWO format (2010-2021 compatible) using the `--gwo-format` option.
 
 ### RMK (Remark) Codes
 
@@ -365,19 +375,19 @@ python test_jma_downloader.py
 python test_jma_week.py
 
 # Verify converted GWO data against original database
-python verify_gwo_conversion.py jma_data/Tokyo/Tokyo2019.csv $DATA_DIR/met/JMA_DataBase/GWO/Hourly/Tokyo/Tokyo2019.csv
+python -m gwo_amd.verify_gwo_conversion jma_data/Tokyo/Tokyo2019.csv $DATA_DIR/met/JMA_DataBase/GWO/Hourly/Tokyo/Tokyo2019.csv
 ```
 
 ### Verification Script
 
-The `verify_gwo_conversion.py` script compares converted JMA data with original GWO database files to ensure accuracy:
+The `gwo_amd.verify_gwo_conversion` script compares converted JMA data with original GWO database files to ensure accuracy:
 
 ```bash
 # Usage
-python verify_gwo_conversion.py <converted_file> <original_file>
+python -m gwo_amd.verify_gwo_conversion <converted_file> <original_file>
 
 # Example
-python verify_gwo_conversion.py jma_data/Tokyo/Tokyo2019.csv /path/to/GWO/Hourly/Tokyo/Tokyo2019.csv
+python -m gwo_amd.verify_gwo_conversion jma_data/Tokyo/Tokyo2019.csv /path/to/GWO/Hourly/Tokyo/Tokyo2019.csv
 ```
 
 **Features:**
@@ -482,8 +492,8 @@ Jun Sasaki (coded on 2017-09-09, updated on 2024-07-02)
 準備中
 
 ## 使い方
-- **GWO_multiple_stns_to_stn.ipynb**で，SqlView7.exeで切り出した全観測点全期間のCSVファイルを読み込み，観測点別のCSVファイルとして，指定されたディレクトリに出力する．
-- **GWO_div_year.ipynb**で，観測点別ディレクトリに年別CSVファイルとして出力する．
+- **notebooks/GWO_multiple_stns_to_stn.ipynb**で，SqlView7.exeで切り出した全観測点全期間のCSVファイルを読み込み，観測点別のCSVファイルとして，指定されたディレクトリに出力する．
+- **notebooks/GWO_div_year.ipynb**で，観測点別ディレクトリに年別CSVファイルとして出力する．
 - 詳細はそれぞれのJupyter Notebookを参照ください．
 
 ## 注意
@@ -492,11 +502,9 @@ Jun Sasaki (coded on 2017-09-09, updated on 2024-07-02)
 - Since there were missing rows in the time series CSV data files for Chiba in 2010 and 2011, a class of Met_GWO_check (Met_GWO) is added in **mod_class_met.py** to check such missing rows.
 
 ## Plotツール
-- 簡単なプロットツール **run_hourly_met.ipynb** を用意しました．**mod_class_met.py**を読み込みます．
-- A simple GWO hourly meteorological data plotting and processing tool of **run_hourly_met.ipynb** is prepared, which imports **mod_class_met.py**.
+- 簡単なプロットツール **notebooks/run_hourly_met.ipynb** を用意しました．**gwo_amd.mod_class_met**を読み込みます．
+- A simple GWO hourly meteorological data plotting and processing tool of **notebooks/run_hourly_met.ipynb** is prepared, which imports **gwo_amd.mod_class_met**.
 - Hourly data directory path should be given:
-```bash
-dirpath = "/mnt/d/dat/met/JMA_DataBase/GWO/Hourly/"
-```
+`dirpath` には `DATA_DIR` で設定したパス（例: `/mnt/c/Data/met/JMA_DataBase/GWO/Hourly/`）を基準に設定してください。
 
 </details>

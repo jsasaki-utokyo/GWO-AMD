@@ -1,14 +1,14 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-`jma_weather_downloader.py` powers the `jma-download` CLI, `jma_to_gwo_converter.py` and `mod_class_met.py` handle conversion and analytics, and `config.py` centralizes paths via `.env`. Data defaults to `jma_data/` (web output) plus the external GWO/AMD trees described in `CONFIGURATION.md`, while notebooks at the repo root remain exploratory—promote reusable code into modules.
+`gwo_amd/jma_weather_downloader.py` powers the `jma-download` CLI, `gwo_amd/jma_to_gwo_converter.py` and `gwo_amd/mod_class_met.py` handle conversion and analytics, and `gwo_amd/config.py` centralizes paths via `.env`. Data defaults to `jma_data/` (web output) plus the external GWO/AMD trees described in `CONFIGURATION.md`, while notebooks at the repo root remain exploratory—promote reusable code into modules.
 
 ## Build, Test, and Development Commands
 - `conda env create -f environment.yml && conda activate gwo-amd` – provision the Python 3.12 stack with pandas, requests, and lxml.
 - `pip install -e .[dev]` – editable install plus notebook extras.
 - `python config.py` – confirm `DATA_DIR` and sibling paths before downloads.
 - `jma-download --year 2023 --station tokyo --gwo-format` – pull hourly CSVs into `jma_data/Tokyo/` and emit GWO columns.
-- `python verify_gwo_conversion.py --input jma_data/Tokyo2023.csv --out temp_jma/Tokyo2023_gwo.csv` – check converters before distributing results.
+- `python -m gwo_amd.verify_gwo_conversion temp_jma/Tokyo2023.csv $DATA_DIR/met/JMA_DataBase/GWO/Hourly/Tokyo/Tokyo2023.csv` – check converters before distributing results.
 
 ## Coding Style & Naming Conventions
 Follow PEP 8 with 4-space indents, `snake_case` functions, and `CapWords` classes (e.g., `Met_GWO`). Prefer `pathlib.Path`, f-strings, and concise logging strings. CLI options should stay long-form (`--year`, `--prec_no`) and match argparse defaults documented in `README.md`. Keep pandas logic vectorized, isolating unavoidable loops in helpers for easier profiling.

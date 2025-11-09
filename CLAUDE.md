@@ -57,7 +57,7 @@ python test_jma_week.py
 jma-download --year 2023 --station tokyo
 
 # Or using the Python module directly
-python jma_weather_downloader.py --year 2023 --station tokyo
+python -m gwo_amd.jma_weather_downloader --year 2023 --station tokyo
 
 # Download multiple years
 jma-download --year 2020 2021 2022 2023 --station osaka
@@ -197,10 +197,10 @@ Critical for data quality assessment:
 ### Working with GWO/AMD Database
 The Jupyter notebooks process commercial database exports:
 
-1. **GWO_multiple_stns_to_stn.ipynb**: Extract per-station CSVs from SqlView7.exe multi-station export
-2. **GWO_div_year.ipynb**: Split station CSVs into yearly files
-3. **run_hourly_met.ipynb**: Plot and analyze hourly meteorological data (imports `mod_class_met.py`)
-4. **run_daily_met.ipynb**: Process daily aggregated data
+1. **notebooks/GWO_multiple_stns_to_stn.ipynb**: Extract per-station CSVs from SqlView7.exe multi-station export
+2. **notebooks/GWO_div_year.ipynb**: Split station CSVs into yearly files
+3. **notebooks/run_hourly_met.ipynb**: Plot and analyze hourly meteorological data (imports `gwo_amd.mod_class_met`)
+4. **notebooks/run_daily_met.ipynb**: Process daily aggregated data
 
 Directory path pattern expected:
 ```
