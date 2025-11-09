@@ -148,7 +148,8 @@ cp -r ./converted/* $DATA_DIR/met/JMA_DataBase/GWO/Hourly/
 | Temperature | 15.3°C | 153 (×10) |
 | Wind direction | 北西 (text) | 14 (code) |
 | Cloud cover | Sparse, "0+" (text) | Interpolated, 0-10 (numeric) |
-| Missing data | "--" | RMK codes (2) + 0 |
+| No phenomenon | "--" (converted to 0 with RMK=2) | 0 with RMK=2 |
+| Missing value | "///" or "×" (RMK=1) | RMK=1 (value omitted) |
 | Weather code | Not available | 0 with RMK=2 |
 
 **Wind Direction Mapping:**
@@ -290,7 +291,7 @@ The Japan Meteorological Agency and its data providers have used three distinct 
    - Direct values (hPa, °C, m/s - no scaling)
    - Wind direction as Japanese text (北, 南東, etc.)
    - Sparse cloud cover data (3-hour intervals only)
-   - Missing data marked as "--"
+   - Symbols: `--` = phenomenon did not occur (value 0), `×` / `///` = missing observation, `#` = questionable
 
 The `jma_weather_downloader.py` tool downloads data in the modern JMA format (2022+) by default, but can convert to legacy GWO format (2010-2021 compatible) using the `--gwo-format` option.
 
