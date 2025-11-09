@@ -239,11 +239,46 @@ Downloaded data follows the same structure as GWO/AMD databases:
 Example: jma_data/Tokyo/Tokyo2023.csv
 ```
 
-This makes it easy to copy downloaded data into your existing GWO database:
-```bash
-# After downloading
-cp -r jma_data/* $DATA_DIR/met/JMA_DataBase/GWO/Hourly/
-```
+### GWO Hourly CSV Column Reference
+
+Each row in the GWO/AMD hourly CSV uses 33 columns (no header). The table below maps column
+numbers to their field names and meanings:
+
+| Col | Field | Description |
+|----:|-------|-------------|
+| 1 | `station_id` | 観測所ID |
+| 2 | `station_name` | 観測所名 |
+| 3 | `station_id2` | ID1 |
+| 4 | `year` | 年 |
+| 5 | `month` | 月 |
+| 6 | `day` | 日 |
+| 7 | `hour` | 時 |
+| 8 | `local_pressure` | 現地気圧 (0.1hPa) |
+| 9 | `local_pressure_rmk` | 現地気圧 RMK |
+| 10 | `sea_pressure` | 海面気圧 (0.1hPa) |
+| 11 | `sea_pressure_rmk` | 海面気圧 RMK |
+| 12 | `temperature` | 気温 (0.1°C) |
+| 13 | `temperature_rmk` | 気温 RMK |
+| 14 | `vapor_pressure` | 蒸気圧 (0.1hPa) |
+| 15 | `vapor_pressure_rmk` | 蒸気圧 RMK |
+| 16 | `humidity` | 相対湿度 (%) |
+| 17 | `humidity_rmk` | 相対湿度 RMK |
+| 18 | `wind_dir` | 風向 (1-16) |
+| 19 | `wind_dir_rmk` | 風向 RMK |
+| 20 | `wind_speed` | 風速 (0.1m/s) |
+| 21 | `wind_speed_rmk` | 風速 RMK |
+| 22 | `cloud` | 雲量 (0-10) |
+| 23 | `cloud_rmk` | 雲量 RMK |
+| 24 | `weather` | 現在天気 |
+| 25 | `weather_rmk` | 現在天気 RMK |
+| 26 | `dew_point` | 露点温度 (0.1°C) |
+| 27 | `dew_point_rmk` | 露点 RMK |
+| 28 | `sunshine` | 日照時間 (0.1h) |
+| 29 | `sunshine_rmk` | 日照 RMK |
+| 30 | `solar` | 全天日射量 (0.01MJ/m²/h) |
+| 31 | `solar_rmk` | 日射 RMK |
+| 32 | `precip` | 降水量 (0.1mm) |
+| 33 | `precip_rmk` | 降水 RMK |
 
 ### Station Catalog
 
