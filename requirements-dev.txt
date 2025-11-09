@@ -1,0 +1,4 @@
+-r requirements_jma_downloader.txt
+-e .[dev]
+ruff
+pytest
