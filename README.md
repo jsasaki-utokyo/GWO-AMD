@@ -88,6 +88,7 @@ Downloads historical hourly weather data directly from [JMA's etrn service](http
 
 ```bash
 # Download single year (creates: jma_data/Tokyo/Tokyo2023.csv)
+# Station names are case-insensitive: tokyo, Tokyo, TOKYO all work
 jma-download --year 2023 --station tokyo
 
 # Download multiple years
@@ -349,7 +350,41 @@ python test_jma_downloader.py
 
 # Test weekly data download
 python test_jma_week.py
+
+# Verify converted GWO data against original database
+python verify_gwo_conversion.py jma_data/Tokyo/Tokyo2019.csv $DATA_DIR/met/JMA_DataBase/GWO/Hourly/Tokyo/Tokyo2019.csv
 ```
+
+### Verification Script
+
+The `verify_gwo_conversion.py` script compares converted JMA data with original GWO database files to ensure accuracy:
+
+```bash
+# Usage
+python verify_gwo_conversion.py <converted_file> <original_file>
+
+# Example
+python verify_gwo_conversion.py jma_data/Tokyo/Tokyo2019.csv /path/to/GWO/Hourly/Tokyo/Tokyo2019.csv
+```
+
+**Features:**
+- Column-by-column comparison of all 33 GWO format columns
+- Identifies core data matches (pressure, temperature, humidity, wind)
+- Detects known bugs in original GWO data (cloud interpolation)
+- Issues warnings that disappear when original data is corrected
+- Accounts for expected differences (weather codes not in JMA format)
+
+**Known Bug in Original GWO Data:**
+
+The original GWO database has a bug where **cloud cover is not interpolated** between 3-hour observation intervals (03:00, 06:00, 09:00, etc.). Instead, it sets `cloud=0` with `RMK=2` for non-observation hours.
+
+The converter **correctly interpolates** cloud values, providing better data continuity. For example:
+- Hour 03: cloud=8 (observed)
+- Hour 04: cloud=6 (interpolated) ← Original GWO has 0 here (bug)
+- Hour 05: cloud=4 (interpolated) ← Original GWO has 0 here (bug)
+- Hour 06: cloud=2 (observed)
+
+The verification script will issue a warning about this bug, which will disappear once you correct the original GWO CSV files with proper interpolation.
 
 ## Documentation
 

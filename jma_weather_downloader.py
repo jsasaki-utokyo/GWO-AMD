@@ -12,6 +12,7 @@ Usage:
 import argparse
 import datetime as dt
 import time
+import sys
 from pathlib import Path
 from calendar import monthrange
 import requests
@@ -120,70 +121,149 @@ def convert_to_gwo_format(df_jma, station_name_en, station_name_jp):
             if year is None or month is None or day is None:
                 continue
 
-            # Helper functions
-            def to_float(val):
-                if pd.isna(val) or val == '--' or val == '' or val == '×':
-                    return None
+            # Helper functions for parsing JMA data with quality symbols
+            # See: https://www.data.jma.go.jp/risk/obsdl/top/help3
+            def parse_value_and_quality(val):
+                """
+                Parse JMA value with quality symbol and return (value, quality_code).
+
+                Quality symbols:
+                - )  : quasi-normal (some missing data, ~80% present) → RMK=5
+                - ]  : insufficient data (gaps exceed tolerance) → RMK=5
+                - #  : questionable value → RMK=5
+                - -- : no phenomenon occurred (e.g., no rain) → value=0, RMK=8
+                - /// or × : missing/invalid data → value=None, RMK=1
+                - (blank) : not an observation item → value=None, RMK=2
+                """
+                if pd.isna(val) or val == '':
+                    return None, 2  # Not observed
+
+                val_str = str(val).strip()
+
+                # Check for missing data symbols
+                if val_str in ['///', '×']:
+                    return None, 1  # Missing data
+
+                # Check for no phenomenon
+                if val_str == '--':
+                    return 0, 2  # No phenomenon (not observed, value=0)
+
+                # Check for quality symbols (remove them but track quality)
+                quality_code = 8  # Normal by default
+                cleaned_val = val_str
+
+                if ')' in val_str:
+                    quality_code = 5  # Quasi-normal (contains estimated values)
+                    cleaned_val = val_str.replace(')', '').strip()
+                elif ']' in val_str:
+                    quality_code = 5  # Insufficient data
+                    cleaned_val = val_str.replace(']', '').strip()
+                elif '#' in val_str:
+                    quality_code = 5  # Questionable value
+                    cleaned_val = val_str.replace('#', '').strip()
+
+                # Parse numeric value
                 try:
-                    return float(str(val).replace('−', '-'))
+                    # Handle negative sign variants
+                    cleaned_val = cleaned_val.replace('−', '-')
+                    value = float(cleaned_val)
+                    return value, quality_code
                 except:
-                    return None
+                    return None, 1  # Parse error, treat as missing
 
-            def to_int_scaled(val, scale=10):
-                fval = to_float(val)
-                return int(fval * scale) if fval is not None else None
+            def to_float_with_quality(val):
+                """Parse value and return (value, quality_code)."""
+                return parse_value_and_quality(val)
 
-            def rmk(val):
-                return 8 if val is not None else 1
+            def to_int_scaled_with_quality(val, scale=10):
+                """Parse value, scale it, and return (scaled_int, quality_code)."""
+                value, quality = parse_value_and_quality(val)
+                if value is not None:
+                    # Use round() instead of int() to match original GWO conversion
+                    # This avoids ±1 rounding errors due to floating point precision
+                    return round(value * scale), quality
+                return None, quality
 
-            # Parse wind direction
-            def wind_dir_code(text):
-                if pd.isna(text) or text == '--' or text == '':
-                    return 0
-                return WIND_DIR_MAP.get(str(text).strip(), 0)
+            # Parse wind direction with quality
+            def wind_dir_code_with_quality(text):
+                """Parse wind direction text and return (code, quality)."""
+                if pd.isna(text) or text == '':
+                    return 0, 2  # Not observed
 
-            # Parse cloud cover
-            def parse_cloud(cloud_str):
-                if pd.isna(cloud_str) or cloud_str == '' or cloud_str == '--':
-                    return None
+                text_str = str(text).strip()
+
+                # Remove quality symbols
+                quality = 8
+                for symbol in [')', ']', '#']:
+                    if symbol in text_str:
+                        quality = 5
+                        text_str = text_str.replace(symbol, '').strip()
+
+                if text_str == '--' or text_str == '':
+                    return 0, 2  # No phenomenon / calm
+
+                # Map Japanese direction to code
+                code = WIND_DIR_MAP.get(text_str, 0)
+                return code, quality if code > 0 else 2
+
+            # Parse cloud cover with quality
+            def parse_cloud_with_quality(cloud_str):
+                """Parse cloud cover and return (value, quality)."""
+                if pd.isna(cloud_str) or cloud_str == '':
+                    return None, 2  # Not observed
+
+                cloud_str = str(cloud_str).strip()
+
+                if cloud_str in ['--', '///', '×']:
+                    return None, 2  # Not observed
+
+                # Remove quality symbols and +/- indicators
+                quality = 8
+                for symbol in [')', ']', '#']:
+                    if symbol in cloud_str:
+                        quality = 5
+                        cloud_str = cloud_str.replace(symbol, '').strip()
+
                 try:
-                    cloud_str = str(cloud_str).replace('+', '').replace('-', '').replace('−', '')
+                    # Remove +/- indicators (e.g., "10-" means "less than 10")
+                    cloud_str = cloud_str.replace('+', '').replace('-', '').replace('−', '')
                     val = float(cloud_str)
-                    return int(val) if 0 <= val <= 10 else None
+                    return int(val) if 0 <= val <= 10 else None, quality
                 except:
-                    return None
+                    return None, 2
 
-            # Extract values (positions based on JMA format)
-            local_pressure = to_int_scaled(row.iloc[1], 10)  # hPa -> 0.1hPa
-            sea_pressure = to_int_scaled(row.iloc[2], 10)
-            temp = to_int_scaled(row.iloc[4], 10)  # °C -> 0.1°C
-            dew_point = to_int_scaled(row.iloc[5], 10)
-            vapor_pressure = to_int_scaled(row.iloc[6], 10)
-            humidity = to_int_scaled(row.iloc[7], 1)  # % (no scaling)
-            wind_speed = to_int_scaled(row.iloc[8], 10)  # m/s -> 0.1m/s
-            wind_dir = wind_dir_code(row.iloc[9])
-            sunshine = to_int_scaled(row.iloc[10], 10) if len(row) > 10 else None
-            solar = to_int_scaled(row.iloc[11], 100) if len(row) > 11 else None  # MJ/m² -> 0.01MJ/m²
-            precip = to_int_scaled(row.iloc[3], 10) if len(row) > 3 else None
-            cloud = parse_cloud(row.iloc[15]) if len(row) > 15 else None
+            # Extract values with quality codes (positions based on JMA format)
+            local_pressure, local_pressure_rmk = to_int_scaled_with_quality(row.iloc[1], 10)
+            sea_pressure, sea_pressure_rmk = to_int_scaled_with_quality(row.iloc[2], 10)
+            temp, temp_rmk = to_int_scaled_with_quality(row.iloc[4], 10)
+            dew_point, dew_point_rmk = to_int_scaled_with_quality(row.iloc[5], 10)
+            vapor_pressure, vapor_pressure_rmk = to_int_scaled_with_quality(row.iloc[6], 10)
+            humidity, humidity_rmk = to_int_scaled_with_quality(row.iloc[7], 1)  # % (no scaling)
+            wind_speed, wind_speed_rmk = to_int_scaled_with_quality(row.iloc[8], 10)
+            wind_dir, wind_dir_rmk = wind_dir_code_with_quality(row.iloc[9])
+
+            sunshine, sunshine_rmk = to_int_scaled_with_quality(row.iloc[10], 10) if len(row) > 10 else (None, 2)
+            solar, solar_rmk = to_int_scaled_with_quality(row.iloc[11], 100) if len(row) > 11 else (None, 2)
+            precip, precip_rmk = to_int_scaled_with_quality(row.iloc[3], 10) if len(row) > 3 else (None, 2)
+            cloud, cloud_rmk = parse_cloud_with_quality(row.iloc[15]) if len(row) > 15 else (None, 2)
 
             # Build GWO row (33 columns)
             gwo_row = [
                 station_id, station_name_jp, station_id,  # 1-3
                 year, month, day, hour,  # 4-7
-                local_pressure, rmk(local_pressure),  # 8-9
-                sea_pressure, rmk(sea_pressure),  # 10-11
-                temp, rmk(temp),  # 12-13
-                vapor_pressure, rmk(vapor_pressure),  # 14-15
-                humidity, rmk(humidity),  # 16-17
-                wind_dir, rmk(wind_dir) if wind_dir > 0 else 1,  # 18-19
-                wind_speed, rmk(wind_speed),  # 20-21
-                cloud, 2 if cloud is None else 8,  # 22-23 (RMK=2 for not observed)
+                local_pressure, local_pressure_rmk,  # 8-9
+                sea_pressure, sea_pressure_rmk,  # 10-11
+                temp, temp_rmk,  # 12-13
+                vapor_pressure, vapor_pressure_rmk,  # 14-15
+                humidity, humidity_rmk,  # 16-17
+                wind_dir, wind_dir_rmk,  # 18-19
+                wind_speed, wind_speed_rmk,  # 20-21
+                cloud, cloud_rmk,  # 22-23
                 0, 2,  # 24-25 (weather code not available)
-                dew_point, rmk(dew_point),  # 26-27
-                sunshine, 2 if sunshine is None else 8,  # 28-29
-                solar, 2 if solar is None else 8,  # 30-31
-                precip, 2 if precip is None else 8,  # 32-33 (RMK=2 for not observed)
+                dew_point, dew_point_rmk,  # 26-27
+                sunshine, sunshine_rmk,  # 28-29
+                solar, solar_rmk,  # 30-31
+                precip, precip_rmk,  # 32-33
             ]
 
             gwo_rows.append(gwo_row)
@@ -497,8 +577,7 @@ Available preset stations:
     parser.add_argument(
         "--station",
         type=str,
-        choices=list(STATIONS.keys()),
-        help=f"観測地点名（{', '.join(STATIONS.keys())}）"
+        help=f"観測地点名（{', '.join(STATIONS.keys())}）（大文字小文字は区別しません / case-insensitive）"
     )
 
     parser.add_argument(
@@ -549,7 +628,14 @@ Available preset stations:
 
     # 観測地点の設定
     if args.station:
-        station_info = STATIONS[args.station]
+        # Case-insensitive station matching
+        station_key = args.station.lower()
+        if station_key not in STATIONS:
+            print(f"Error: Unknown station '{args.station}'")
+            print(f"Available stations (case-insensitive): {', '.join(STATIONS.keys())}")
+            sys.exit(1)
+
+        station_info = STATIONS[station_key]
         prec_no = station_info["prec_no"]
         block_no = station_info["block_no"]
         station_name = station_info["name"]

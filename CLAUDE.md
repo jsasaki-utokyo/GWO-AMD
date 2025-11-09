@@ -71,8 +71,14 @@ jma-download --year 2023 --station tokyo --output ./download
 # Adjust request delay (default 1.0s, minimum 0.5s recommended)
 jma-download --year 2023 --station tokyo --delay 0.5
 
+# Download with GWO format conversion (legacy database compatible)
+jma-download --year 2021 --station tokyo --gwo-format
+
 # Copy downloaded data to GWO database
 cp -r jma_data/* $DATA_DIR/met/JMA_DataBase/GWO/Hourly/
+
+# Verify converted data against original GWO database
+python verify_gwo_conversion.py jma_data/Tokyo/Tokyo2019.csv $DATA_DIR/met/JMA_DataBase/GWO/Hourly/Tokyo/Tokyo2019.csv
 ```
 
 ## Architecture
@@ -230,3 +236,31 @@ Files are self-contained Python scripts. When modifying:
 - No official API; relies on HTML table scraping via `pd.read_html()`
 - Station codes found at: https://www.data.jma.go.jp/stats/etrn/index.php
 - Service may return empty tables for non-existent station/date combinations
+
+### Verification and Known Bugs
+
+**Verification Script: `verify_gwo_conversion.py`**
+- Compares converted JMA data with original GWO database files
+- Performs column-by-column comparison of all 33 columns
+- Identifies known bugs in original GWO data
+- Issues warnings that disappear when original data is corrected
+- Usage: `python verify_gwo_conversion.py <converted_file> <original_file>`
+
+**Known Bug in Original GWO Database:**
+
+The original GWO database has a **cloud interpolation bug**:
+- Cloud cover is only recorded at 3-hour intervals (03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00)
+- For non-observation hours, the original database sets `cloud=0` with `RMK=2` instead of interpolating
+- This creates artificial gaps in cloud cover data
+
+**Correct Behavior (Implemented in Converter):**
+- The `jma_weather_downloader.py` converter correctly interpolates cloud values between observations
+- Example: If hour 03 has cloud=8 and hour 06 has cloud=2, then:
+  - Hour 04: cloud=6 (interpolated)
+  - Hour 05: cloud=4 (interpolated)
+- Interpolated values retain `RMK=2` to distinguish from observed values (RMK=8)
+
+**Impact:**
+- ~58-62% of rows in original GWO database have incorrect cloud=0 values
+- The converter produces correct interpolated values
+- Use `verify_gwo_conversion.py` to identify affected files
