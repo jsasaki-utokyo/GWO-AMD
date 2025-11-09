@@ -149,7 +149,13 @@ cp -r ./converted/* $DATA_DIR/met/JMA_DataBase/GWO/Hourly/
 | Headers | Yes (2 rows) | No |
 | Pressure | 1008.4 hPa | 10084 (×10) |
 | Temperature | 15.3°C | 153 (×10) |
+| Dew point | 12.4°C | 124 (×10) |
+| Vapor pressure | 18.5 hPa | 185 (×10) |
 | Wind direction | 北西 (text) | 14 (code) |
+| Wind speed | 4.5 m/s | 45 (×10) |
+| Sunshine duration | 6.2 h | 62 (×10) |
+| Solar radiation | 0.56 MJ/m² | 56 (×100) |
+| Precipitation | 12.5 mm | 125 (×10) |
 | Cloud cover | Sparse, "0+" (text) | Interpolated, 0-10 (numeric) |
 | No phenomenon | "--" (converted to 0 with RMK=2) | 0 with RMK=2 |
 | Missing value | "///" or "×" (RMK=1) | RMK=1 (value omitted) |
