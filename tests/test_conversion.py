@@ -85,10 +85,10 @@ def test_convert_to_gwo_format_scales_and_handles_markers():
 
     # Row 2 handling of "--" / missing markers.
     second = converted.iloc[1]
-    assert second[31] == 0  # precipitation coerced to 0
+    assert pd.isna(second[31])  # precipitation not observed -> NaN
     assert second[32] == 2  # precipitation RMK -> no phenomenon
-    assert second[27] == 0  # sunshine missing -> 0
-    assert second[29] == 0  # solar missing -> 0
+    assert pd.isna(second[27])  # sunshine missing -> NaN
+    assert pd.isna(second[29])  # solar missing -> NaN
     assert second[21] >= 0  # cloud interpolated to numeric
 
 

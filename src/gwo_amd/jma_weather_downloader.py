@@ -306,32 +306,53 @@ def convert_to_gwo_format(df_jma, station_metadata):
                 except ValueError:
                     return None, 2
 
+            def mask_not_observed(value, remark):
+                return None if remark == 2 else value
+
             # Extract values with quality codes (positions based on JMA format)
             local_pressure, local_pressure_rmk = to_int_scaled_with_quality(row.iloc[1], 10)
+            local_pressure = mask_not_observed(local_pressure, local_pressure_rmk)
+
             sea_pressure, sea_pressure_rmk = to_int_scaled_with_quality(row.iloc[2], 10)
+            sea_pressure = mask_not_observed(sea_pressure, sea_pressure_rmk)
+
             temp, temp_rmk = to_int_scaled_with_quality(row.iloc[4], 10)
+            temp = mask_not_observed(temp, temp_rmk)
+
             dew_point, dew_point_rmk = to_int_scaled_with_quality(row.iloc[5], 10)
+            dew_point = mask_not_observed(dew_point, dew_point_rmk)
+
             vapor_pressure, vapor_pressure_rmk = to_int_scaled_with_quality(row.iloc[6], 10)
-            humidity, humidity_rmk = to_int_scaled_with_quality(row.iloc[7], 1)  # % (no scaling)
+            vapor_pressure = mask_not_observed(vapor_pressure, vapor_pressure_rmk)
+
+            humidity, humidity_rmk = to_int_scaled_with_quality(row.iloc[7], 1)
+            humidity = mask_not_observed(humidity, humidity_rmk)
+
             wind_speed, wind_speed_rmk = to_int_scaled_with_quality(row.iloc[8], 10)
+            wind_speed = mask_not_observed(wind_speed, wind_speed_rmk)
+
             wind_dir, wind_dir_rmk = wind_dir_code_with_quality(row.iloc[9])
-            if wind_dir_rmk == 2:
-                wind_dir = None
-            if wind_speed_rmk == 2:
-                wind_speed = None
+            wind_dir = mask_not_observed(wind_dir, wind_dir_rmk)
 
             sunshine, sunshine_rmk = (
                 to_int_scaled_with_quality(row.iloc[10], 10) if len(row) > 10 else (None, 2)
             )
+            sunshine = mask_not_observed(sunshine, sunshine_rmk)
+
             solar, solar_rmk = (
                 to_int_scaled_with_quality(row.iloc[11], 100) if len(row) > 11 else (None, 2)
             )
+            solar = mask_not_observed(solar, solar_rmk)
+
             precip, precip_rmk = (
                 to_int_scaled_with_quality(row.iloc[3], 10) if len(row) > 3 else (None, 2)
             )
+            precip = mask_not_observed(precip, precip_rmk)
+
             cloud, cloud_rmk = (
                 parse_cloud_with_quality(row.iloc[15]) if len(row) > 15 else (None, 2)
             )
+            cloud = mask_not_observed(cloud, cloud_rmk)
 
             # Build GWO row (33 columns)
             gwo_row = [
@@ -358,7 +379,7 @@ def convert_to_gwo_format(df_jma, station_metadata):
                 wind_speed_rmk,  # 20-21
                 cloud,
                 cloud_rmk,  # 22-23
-                0,
+                mask_not_observed(0, 2),
                 2,  # 24-25 (weather code not available)
                 dew_point,
                 dew_point_rmk,  # 26-27
@@ -392,49 +413,30 @@ def convert_to_gwo_format(df_jma, station_metadata):
         # Update RMK for interpolated values (keep as 2 if originally not observed)
         # Actually, keep cloud RMK as 2 since original data didn't have it
 
-    # Replace None with 0 for missing data columns (sunshine, solar, precip)
-    # Columns 27, 29, 31 are sunshine, solar, precip values
-    for col in [27, 29, 31]:
-        gwo_df[col] = gwo_df[col].fillna(0)
-
-    # Ensure integer types for all numeric columns
-    int_columns = [
+    # Ensure integer types for identifiers
+    id_columns = [
         0,
         2,
         3,
         4,
         5,
         6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12,
-        13,
-        14,
-        15,
-        16,
-        17,
-        18,
-        19,
-        20,
-        21,
-        22,
-        23,
-        24,
-        25,
-        26,
-        27,
-        28,
-        29,
-        30,
-        31,
-        32,
     ]
-    for col in int_columns:
+    for col in id_columns:
         if col in gwo_df.columns:
-            gwo_df[col] = gwo_df[col].fillna(0).astype(int)
+            gwo_df[col] = gwo_df[col].astype(int)
+
+    # Nullable numeric columns (allow NA)
+    nullable_columns = [7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31]
+    for col in nullable_columns:
+        if col in gwo_df.columns:
+            gwo_df[col] = gwo_df[col].astype("Int64")
+
+    # RMK columns remain plain ints
+    remark_columns = [8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32]
+    for col in remark_columns:
+        if col in gwo_df.columns:
+            gwo_df[col] = gwo_df[col].astype(int)
 
     # Calculate missing value statistics
     # Missing values are indicated by RMK code = 1 (missing) or 2 (not observed)
