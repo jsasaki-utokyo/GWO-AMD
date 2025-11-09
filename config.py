@@ -80,7 +80,25 @@ if __name__ == '__main__':
     # Print configuration when run as script
     print("GWO-AMD Configuration:")
     print("=" * 60)
-    for key, value in CONFIG.items():
+
+    # Input directories (must exist)
+    input_dirs = ['DATA_DIR', 'JMA_DATABASE_DIR', 'GWO_HOURLY_DIR', 'GWO_DAILY_DIR', 'AMD_DIR']
+    # Output directories (created automatically)
+    output_dirs = ['JMA_DOWNLOAD_DIR']
+
+    print("\nInput Data Directories (should exist):")
+    print("-" * 60)
+    for key in input_dirs:
+        value = CONFIG[key]
         exists = "✓" if os.path.isdir(value) else "✗"
         print(f"{exists} {key:20s} = {value}")
+
+    print("\nOutput Directories (created automatically):")
+    print("-" * 60)
+    for key in output_dirs:
+        value = CONFIG[key]
+        exists = "✓" if os.path.isdir(value) else "○"
+        status = "(exists)" if os.path.isdir(value) else "(will be created)"
+        print(f"{exists} {key:20s} = {value} {status}")
+
     print("=" * 60)

@@ -53,6 +53,7 @@ python test_jma_week.py
 ### JMA Data Download
 ```bash
 # Using the installed console script (after pip install -e .)
+# Output: jma_data/Tokyo/Tokyo2023.csv (GWO/AMD compatible structure)
 jma-download --year 2023 --station tokyo
 
 # Or using the Python module directly
@@ -61,11 +62,17 @@ python jma_weather_downloader.py --year 2023 --station tokyo
 # Download multiple years
 jma-download --year 2020 2021 2022 2023 --station osaka
 
-# Download with custom station (prec_no and block_no)
-jma-download --year 2023 --prec_no 44 --block_no 47662 --name 東京
+# Download with custom station (prec_no, block_no, and English name)
+jma-download --year 2023 --prec_no 44 --block_no 47662 --name 東京 --name_en Tokyo
+
+# Specify output directory (to copy to $DATA_DIR later)
+jma-download --year 2023 --station tokyo --output ./download
 
 # Adjust request delay (default 1.0s, minimum 0.5s recommended)
 jma-download --year 2023 --station tokyo --delay 0.5
+
+# Copy downloaded data to GWO database
+cp -r jma_data/* $DATA_DIR/met/JMA_DataBase/GWO/Hourly/
 ```
 
 ## Architecture
@@ -110,15 +117,25 @@ Core meteorological data processing module with class hierarchy:
 Downloads live hourly weather data from JMA's etrn web service:
 
 - **Target URL**: `https://www.data.jma.go.jp/obd/stats/etrn/view/hourly_s1.php`
-- **Station presets**: tokyo, yokohama, chiba, osaka, nagoya, fukuoka, sapporo
+- **Station presets**: tokyo, yokohama, chiba, osaka, nagoya, fukuoka, sapporo (with English names for directory structure)
 - **Parameters**: `prec_no` (prefecture code), `block_no` (station code)
-- **Output**: CSV files named `{station}_{year}_hourly.csv` with UTF-8-BOM encoding
+- **Output structure**: GWO/AMD compatible format
+  - Directory: `{output_dir}/{StationName}/`
+  - Filename: `{StationName}{Year}.csv`
+  - Example: `jma_data/Tokyo/Tokyo2023.csv`
+- **Encoding**: UTF-8-BOM for Excel compatibility
 - **Rate limiting**: Day-by-day downloads with configurable delay (default 1.0s)
 - **Retry logic**: Exponential backoff (2^attempt) up to 3 attempts
 
 Key functions:
 - `download_daily_hourly_data()`: Fetches single day, uses pandas `read_html()` to parse tables
-- `download_yearly_data()`: Iterates through all days in year, concatenates monthly data
+- `download_yearly_data()`: Iterates through all days in year, concatenates monthly data, saves in GWO-compatible structure
+
+Station configuration format (STATIONS dictionary):
+- `name`: Japanese name (display)
+- `name_en`: English name (used for directory/filename)
+- `prec_no`: Prefecture code
+- `block_no`: Station code
 
 ## Data Formats and Units
 

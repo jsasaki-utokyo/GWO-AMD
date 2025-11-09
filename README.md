@@ -87,17 +87,116 @@ Downloads historical hourly weather data directly from [JMA's etrn service](http
 **Usage Examples:**
 
 ```bash
-# Download single year
+# Download single year (creates: jma_data/Tokyo/Tokyo2023.csv)
 jma-download --year 2023 --station tokyo
 
 # Download multiple years
 jma-download --year 2020 2021 2022 2023 --station osaka
 
 # Custom station with prefecture and block codes
-jma-download --year 2023 --prec_no 44 --block_no 47662 --name 東京
+jma-download --year 2023 --prec_no 44 --block_no 47662 --name 東京 --name_en Tokyo
+
+# Specify output directory (to copy to $DATA_DIR later)
+jma-download --year 2023 --station tokyo --output ./download
 
 # Adjust request delay (seconds)
-jma-download --year 2023 --station tokyo --delay 0.5 --output ./data
+jma-download --year 2023 --station tokyo --delay 0.5
+
+# Download with GWO format conversion (legacy database compatible)
+jma-download --year 2021 --station tokyo --gwo-format
+```
+
+### Format Conversion: JMA to GWO
+
+The downloader can automatically convert downloaded data from the modern JMA format to the legacy GWO format for compatibility with existing databases and analysis tools.
+
+**Why Convert?**
+- JMA changed data format in 2022 (20 columns with headers vs. 33 columns without headers)
+- Cloud cover data became sparse (only at 3-hour intervals)
+- Wind direction changed from numeric codes (1-16) to Japanese text (北, 南東, etc.)
+- Units changed from scaled values (×10) to direct values
+
+**Conversion Features:**
+- **Format transformation**: 20 columns → 33 columns, removes headers
+- **Wind direction mapping**: Japanese text (北西, 南東, etc.) → GWO codes (1-16)
+- **Unit conversion**: Direct values (hPa, °C, m/s) → Scaled values (×0.1)
+- **Cloud cover interpolation**: Linear interpolation for missing hourly values
+- **RMK code generation**: Proper remark codes (8=observed, 2=not observed, 1=missing)
+- **Complete compatibility**: Output matches legacy GWO database format exactly
+
+**Usage:**
+
+```bash
+# Download and convert to GWO format
+jma-download --year 2021 --station tokyo --gwo-format
+
+# Convert multiple years for direct integration
+jma-download --year 2020 2021 2022 2023 --station tokyo --gwo-format --output ./converted
+
+# Copy converted data directly to GWO database
+cp -r ./converted/* $DATA_DIR/met/JMA_DataBase/GWO/Hourly/
+```
+
+**Format Comparison:**
+
+| Feature | JMA Format (default) | GWO Format (--gwo-format) |
+|---------|---------------------|---------------------------|
+| Columns | 20 | 33 |
+| Headers | Yes (2 rows) | No |
+| Pressure | 1008.4 hPa | 10084 (×10) |
+| Temperature | 15.3°C | 153 (×10) |
+| Wind direction | 北西 (text) | 14 (code) |
+| Cloud cover | Sparse, "0+" (text) | Interpolated, 0-10 (numeric) |
+| Missing data | "--" | RMK codes (2) + 0 |
+| Weather code | Not available | 0 with RMK=2 |
+
+**Wind Direction Mapping:**
+
+| Japanese | Code | Direction | Japanese | Code | Direction |
+|----------|------|-----------|----------|------|-----------|
+| 北 | 16 | N | 南 | 8 | S |
+| 北北東 | 1 | NNE | 南南西 | 9 | SSW |
+| 北東 | 2 | NE | 南西 | 10 | SW |
+| 東北東 | 3 | ENE | 西南西 | 11 | WSW |
+| 東 | 4 | E | 西 | 12 | W |
+| 東南東 | 5 | ESE | 西北西 | 13 | WNW |
+| 南東 | 6 | SE | 北西 | 14 | NW |
+| 南南東 | 7 | SSE | 北北西 | 15 | NNW |
+| 静穏 | 0 | Calm | | | |
+
+**Cloud Cover Interpolation Example:**
+
+```
+Original JMA data (3-hour intervals):
+  Hour 03: 8 (observed)
+  Hour 04: -- (missing)
+  Hour 05: -- (missing)
+  Hour 06: 2 (observed)
+
+Converted GWO data (interpolated):
+  Hour 03: 8, RMK=8 (observed)
+  Hour 04: 6, RMK=2 (interpolated)
+  Hour 05: 4, RMK=2 (interpolated)
+  Hour 06: 2, RMK=8 (observed)
+```
+
+**Output Structure (GWO/AMD Compatible):**
+
+Downloaded data follows the same structure as GWO/AMD databases:
+```
+{output_dir}/
+  └── {StationName}/
+      ├── {StationName}2020.csv
+      ├── {StationName}2021.csv
+      └── {StationName}2023.csv
+
+Example: jma_data/Tokyo/Tokyo2023.csv
+```
+
+This makes it easy to copy downloaded data into your existing GWO database:
+```bash
+# After downloading
+cp -r jma_data/* $DATA_DIR/met/JMA_DataBase/GWO/Hourly/
 ```
 
 **Available Preset Stations:**
@@ -164,6 +263,32 @@ met.to_csv(df_hourly, "./tokyo_2014.csv")
 - **`dev_class_met.ipynb`**: Development and testing notebook
 
 ## Data Format Notes
+
+### JMA Data Format History
+
+The Japan Meteorological Agency and its data providers have used three distinct format periods:
+
+1. **Pre-2010 (Original GWO format)**
+   - 3-hour intervals for 1961-1990
+   - 33 columns, no headers
+   - Limited data availability (no sunshine/solar/precipitation before 1991)
+
+2. **2010-2021 (Modified GWO format)**
+   - 1-hour intervals
+   - 33 columns, no headers
+   - Scaled values (×0.1 for most parameters)
+   - Wind direction as numeric codes (1-16)
+   - Complete data coverage
+
+3. **2022+ (JMA-compatible format / 気象庁互換形式)**
+   - 1-hour intervals
+   - 20 columns with Japanese headers
+   - Direct values (hPa, °C, m/s - no scaling)
+   - Wind direction as Japanese text (北, 南東, etc.)
+   - Sparse cloud cover data (3-hour intervals only)
+   - Missing data marked as "--"
+
+The `jma_weather_downloader.py` tool downloads data in the modern JMA format (2022+) by default, but can convert to legacy GWO format (2010-2021 compatible) using the `--gwo-format` option.
 
 ### RMK (Remark) Codes
 
