@@ -132,4 +132,5 @@ dmypy.json
 
 # JMA Weather Data Downloader
 test_*.csv
+temp_jma/
 jma_data/
