@@ -11,34 +11,34 @@ import pandas as pd
 # GWO: 0=N/A, 1=NNE, 2=NE, 3=ENE, 4=E, 5=ESE, 6=SE, 7=SSE, 8=S,
 #      9=SSW, 10=SW, 11=WSW, 12=W, 13=WNW, 14=NW, 15=NNW, 16=N
 WIND_DIR_MAP = {
-    '北': 16,
-    '北北東': 1,
-    '北東': 2,
-    '東北東': 3,
-    '東': 4,
-    '東南東': 5,
-    '南東': 6,
-    '南南東': 7,
-    '南': 8,
-    '南南西': 9,
-    '南西': 10,
-    '西南西': 11,
-    '西': 12,
-    '西北西': 13,
-    '北西': 14,
-    '北北西': 15,
-    '静穏': 0,  # Calm
+    "北": 16,
+    "北北東": 1,
+    "北東": 2,
+    "東北東": 3,
+    "東": 4,
+    "東南東": 5,
+    "南東": 6,
+    "南南東": 7,
+    "南": 8,
+    "南南西": 9,
+    "南西": 10,
+    "西南西": 11,
+    "西": 12,
+    "西北西": 13,
+    "北西": 14,
+    "北北西": 15,
+    "静穏": 0,  # Calm
 }
 
 # Station ID mapping (extend as needed)
 STATION_IDS = {
-    'Tokyo': ('662', '東京'),
-    'Yokohama': ('671', '横浜'),
-    'Chiba': ('682', '千葉'),
-    'Osaka': ('772', '大阪'),
-    'Nagoya': ('636', '名古屋'),
-    'Fukuoka': ('807', '福岡'),
-    'Sapporo': ('412', '札幌'),
+    "Tokyo": ("662", "東京"),
+    "Yokohama": ("671", "横浜"),
+    "Chiba": ("682", "千葉"),
+    "Osaka": ("772", "大阪"),
+    "Nagoya": ("636", "名古屋"),
+    "Fukuoka": ("807", "福岡"),
+    "Sapporo": ("412", "札幌"),
 }
 
 
@@ -47,13 +47,13 @@ def parse_cloud_cover(cloud_str):
     Parse cloud cover from JMA text format to GWO numeric (0-10)
     Examples: "0+", "10-", "5", "" (empty)
     """
-    if pd.isna(cloud_str) or cloud_str == '' or cloud_str == '--':
+    if pd.isna(cloud_str) or cloud_str == "" or cloud_str == "--":
         return None
 
     cloud_str = str(cloud_str).strip()
 
     # Remove +/- symbols
-    cloud_str = cloud_str.replace('+', '').replace('-', '').replace('−', '')
+    cloud_str = cloud_str.replace("+", "").replace("-", "").replace("−", "")
 
     try:
         value = float(cloud_str)
@@ -68,7 +68,7 @@ def parse_cloud_cover(cloud_str):
 
 def convert_wind_direction(wind_dir_text):
     """Convert Japanese wind direction text to GWO code (1-16)"""
-    if pd.isna(wind_dir_text) or wind_dir_text == '' or wind_dir_text == '--':
+    if pd.isna(wind_dir_text) or wind_dir_text == "" or wind_dir_text == "--":
         return 0  # N/A
 
     wind_dir_text = str(wind_dir_text).strip()
@@ -81,7 +81,7 @@ def convert_value(value, missing_markers=None):
     Returns None for missing data
     """
     if missing_markers is None:
-        missing_markers = ['--', '×', '/', '#']
+        missing_markers = ["--", "×", "/", "#"]
     if pd.isna(value):
         return None
 
@@ -93,7 +93,7 @@ def convert_value(value, missing_markers=None):
             return None
 
     # Empty string
-    if value_str == '':
+    if value_str == "":
         return None
 
     try:
@@ -108,15 +108,15 @@ def interpolate_cloud_cover(df):
     Cloud cover is typically observed at 3-hour intervals in JMA data
     """
     # Linear interpolation
-    df['cloud_interp'] = df['cloud_cover'].interpolate(method='linear', limit_direction='both')
+    df["cloud_interp"] = df["cloud_cover"].interpolate(method="linear", limit_direction="both")
 
     # Round to nearest integer (0-10)
-    df['cloud_interp'] = df['cloud_interp'].round().clip(0, 10).fillna(0)
+    df["cloud_interp"] = df["cloud_interp"].round().clip(0, 10).fillna(0)
 
     return df
 
 
-def jma_to_gwo_format(input_file, output_file, station_name='Tokyo'):
+def jma_to_gwo_format(input_file, output_file, station_name="Tokyo"):
     """
     Convert JMA etrn CSV format to GWO format
 
@@ -137,16 +137,16 @@ def jma_to_gwo_format(input_file, output_file, station_name='Tokyo'):
     station_id, station_name_jp = STATION_IDS[station_name]
 
     # Read JMA CSV (skip first 2 header rows)
-    df = pd.read_csv(input_file, skiprows=2, encoding='utf-8-sig')
+    df = pd.read_csv(input_file, skiprows=2, encoding="utf-8-sig")
 
     print(f"Read {len(df)} rows from {input_file}")
     print(f"Columns: {df.columns.tolist()}")
 
     # Parse cloud cover
     if df.columns[15] not in df.columns:  # Cloud column
-        df['cloud_cover'] = None
+        df["cloud_cover"] = None
     else:
-        df['cloud_cover'] = df.iloc[:, 15].apply(parse_cloud_cover)
+        df["cloud_cover"] = df.iloc[:, 15].apply(parse_cloud_cover)
 
     # Interpolate cloud cover
     df = interpolate_cloud_cover(df)
@@ -185,7 +185,7 @@ def jma_to_gwo_format(input_file, output_file, station_name='Tokyo'):
         wind_direction_gwo = convert_wind_direction(wind_direction_text)
 
         # Cloud cover (use interpolated value)
-        cloud_cover_gwo = int(row['cloud_interp']) if not pd.isna(row['cloud_interp']) else None
+        cloud_cover_gwo = int(row["cloud_interp"]) if not pd.isna(row["cloud_interp"]) else None
 
         # Sunshine and solar radiation
         sunshine_gwo = int(sunshine * 10) if sunshine is not None else None
@@ -203,39 +203,39 @@ def jma_to_gwo_format(input_file, output_file, station_name='Tokyo'):
 
         # Build GWO row (33 columns)
         gwo_row = [
-            station_id,                    # Col 1: Station ID
-            station_name_jp,               # Col 2: Station name
-            station_id,                    # Col 3: Station ID (repeated)
-            year,                          # Col 4: Year
-            month,                         # Col 5: Month
-            day,                           # Col 6: Day
-            hour,                          # Col 7: Hour
-            local_pressure_gwo,            # Col 8: Local pressure (0.1hPa)
-            get_rmk(local_pressure_gwo),   # Col 9: RMK
-            sea_pressure_gwo,              # Col 10: Sea pressure (0.1hPa)
-            get_rmk(sea_pressure_gwo),     # Col 11: RMK
-            temperature_gwo,               # Col 12: Temperature (0.1°C)
-            get_rmk(temperature_gwo),      # Col 13: RMK
-            vapor_pressure_gwo,            # Col 14: Vapor pressure (0.1hPa)
-            get_rmk(vapor_pressure_gwo),   # Col 15: RMK
-            humidity_gwo,                  # Col 16: Humidity (%)
-            get_rmk(humidity_gwo),         # Col 17: RMK
-            wind_direction_gwo,            # Col 18: Wind direction (1-16)
-            get_rmk(wind_direction_gwo),   # Col 19: RMK
-            wind_speed_gwo,                # Col 20: Wind speed (0.1m/s)
-            get_rmk(wind_speed_gwo),       # Col 21: RMK
-            cloud_cover_gwo,               # Col 22: Cloud cover (10ths)
+            station_id,  # Col 1: Station ID
+            station_name_jp,  # Col 2: Station name
+            station_id,  # Col 3: Station ID (repeated)
+            year,  # Col 4: Year
+            month,  # Col 5: Month
+            day,  # Col 6: Day
+            hour,  # Col 7: Hour
+            local_pressure_gwo,  # Col 8: Local pressure (0.1hPa)
+            get_rmk(local_pressure_gwo),  # Col 9: RMK
+            sea_pressure_gwo,  # Col 10: Sea pressure (0.1hPa)
+            get_rmk(sea_pressure_gwo),  # Col 11: RMK
+            temperature_gwo,  # Col 12: Temperature (0.1°C)
+            get_rmk(temperature_gwo),  # Col 13: RMK
+            vapor_pressure_gwo,  # Col 14: Vapor pressure (0.1hPa)
+            get_rmk(vapor_pressure_gwo),  # Col 15: RMK
+            humidity_gwo,  # Col 16: Humidity (%)
+            get_rmk(humidity_gwo),  # Col 17: RMK
+            wind_direction_gwo,  # Col 18: Wind direction (1-16)
+            get_rmk(wind_direction_gwo),  # Col 19: RMK
+            wind_speed_gwo,  # Col 20: Wind speed (0.1m/s)
+            get_rmk(wind_speed_gwo),  # Col 21: RMK
+            cloud_cover_gwo,  # Col 22: Cloud cover (10ths)
             2 if cloud_cover_gwo is None else 8,  # Col 23: RMK (2=not observed)
-            0,                             # Col 24: Weather code (not available in JMA)
-            2,                             # Col 25: RMK (2=not observed)
-            dew_point_gwo,                 # Col 26: Dew point (0.1°C)
-            get_rmk(dew_point_gwo),        # Col 27: RMK
-            sunshine_gwo,                  # Col 28: Sunshine hours (0.1h)
+            0,  # Col 24: Weather code (not available in JMA)
+            2,  # Col 25: RMK (2=not observed)
+            dew_point_gwo,  # Col 26: Dew point (0.1°C)
+            get_rmk(dew_point_gwo),  # Col 27: RMK
+            sunshine_gwo,  # Col 28: Sunshine hours (0.1h)
             2 if sunshine_gwo is None else 8,  # Col 29: RMK
-            solar_gwo,                     # Col 30: Solar radiation (0.01MJ/m²/h)
-            2 if solar_gwo is None else 8,     # Col 31: RMK
-            precipitation_gwo,             # Col 32: Precipitation (0.1mm/h)
-            get_rmk(precipitation_gwo),    # Col 33: RMK
+            solar_gwo,  # Col 30: Solar radiation (0.01MJ/m²/h)
+            2 if solar_gwo is None else 8,  # Col 31: RMK
+            precipitation_gwo,  # Col 32: Precipitation (0.1mm/h)
+            get_rmk(precipitation_gwo),  # Col 33: RMK
         ]
 
         gwo_data.append(gwo_row)
@@ -244,7 +244,7 @@ def jma_to_gwo_format(input_file, output_file, station_name='Tokyo'):
     gwo_df = pd.DataFrame(gwo_data)
 
     # Save to CSV (no header, no index)
-    gwo_df.to_csv(output_file, header=False, index=False, encoding='utf-8')
+    gwo_df.to_csv(output_file, header=False, index=False, encoding="utf-8")
 
     print(f"Converted {len(gwo_df)} rows to GWO format")
     print(f"Saved to: {output_file}")
@@ -258,13 +258,13 @@ def jma_to_gwo_format(input_file, output_file, station_name='Tokyo'):
     return gwo_df
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Convert JMA format to GWO format')
-    parser.add_argument('input', help='Input JMA CSV file')
-    parser.add_argument('output', help='Output GWO CSV file')
-    parser.add_argument('--station', default='Tokyo', help='Station name (default: Tokyo)')
+    parser = argparse.ArgumentParser(description="Convert JMA format to GWO format")
+    parser.add_argument("input", help="Input JMA CSV file")
+    parser.add_argument("output", help="Output GWO CSV file")
+    parser.add_argument("--station", default="Tokyo", help="Station name (default: Tokyo)")
 
     args = parser.parse_args()
 

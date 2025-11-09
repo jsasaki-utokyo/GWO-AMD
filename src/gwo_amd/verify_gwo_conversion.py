@@ -19,20 +19,46 @@ import pandas as pd
 
 # Column definitions for GWO format (33 columns, 0-indexed)
 GWO_COLUMNS = [
-    "station_id", "station_name", "station_id2", "year", "month", "day", "hour",
-    "local_pressure", "local_pressure_rmk", "sea_pressure", "sea_pressure_rmk",
-    "temperature", "temperature_rmk", "vapor_pressure", "vapor_pressure_rmk",
-    "humidity", "humidity_rmk", "wind_dir", "wind_dir_rmk", "wind_speed", "wind_speed_rmk",
-    "cloud", "cloud_rmk", "weather", "weather_rmk",
-    "dew_point", "dew_point_rmk", "sunshine", "sunshine_rmk",
-    "solar", "solar_rmk", "precip", "precip_rmk"
+    "station_id",
+    "station_name",
+    "station_id2",
+    "year",
+    "month",
+    "day",
+    "hour",
+    "local_pressure",
+    "local_pressure_rmk",
+    "sea_pressure",
+    "sea_pressure_rmk",
+    "temperature",
+    "temperature_rmk",
+    "vapor_pressure",
+    "vapor_pressure_rmk",
+    "humidity",
+    "humidity_rmk",
+    "wind_dir",
+    "wind_dir_rmk",
+    "wind_speed",
+    "wind_speed_rmk",
+    "cloud",
+    "cloud_rmk",
+    "weather",
+    "weather_rmk",
+    "dew_point",
+    "dew_point_rmk",
+    "sunshine",
+    "sunshine_rmk",
+    "solar",
+    "solar_rmk",
+    "precip",
+    "precip_rmk",
 ]
 
 
 def load_gwo_file(filepath):
     """Load GWO format CSV file (no header, 33 columns)."""
     try:
-        df = pd.read_csv(filepath, header=None, encoding='utf-8')
+        df = pd.read_csv(filepath, header=None, encoding="utf-8")
         if len(df.columns) != 33:
             raise ValueError(f"Expected 33 columns, found {len(df.columns)}")
         return df
@@ -104,9 +130,9 @@ def verify_gwo_conversion(converted_file, original_file):
 
     Reports differences and issues warnings for known bugs.
     """
-    print("="*80)
+    print("=" * 80)
     print("GWO Conversion Verification")
-    print("="*80)
+    print("=" * 80)
     print(f"Converted: {converted_file}")
     print(f"Original:  {original_file}")
     print()
@@ -124,7 +150,7 @@ def verify_gwo_conversion(converted_file, original_file):
     # Compare each column
     print()
     print("Column-by-Column Comparison:")
-    print("-"*80)
+    print("-" * 80)
 
     total_diffs = 0
     significant_diffs = []
@@ -150,13 +176,13 @@ def verify_gwo_conversion(converted_file, original_file):
 
             print(f"Col {i:2d} ({col_name:20s}): {diff_count:5d} diffs ({pct:5.2f}%) - {status}")
 
-    print("-"*80)
+    print("-" * 80)
     print(f"Total columns with differences: {total_diffs}/33")
     print()
 
     # Check for known bugs
     print("Known Data Issues:")
-    print("-"*80)
+    print("-" * 80)
 
     # Check cloud interpolation bug
     has_cloud_bug, cloud_diff_count, cloud_samples = check_cloud_interpolation_bug(
@@ -195,9 +221,9 @@ def verify_gwo_conversion(converted_file, original_file):
         print()
 
     # Summary
-    print("="*80)
+    print("=" * 80)
     print("Summary:")
-    print("-"*80)
+    print("-" * 80)
 
     # Check if data matches (excluding known issues)
     core_data_matches = True
@@ -215,7 +241,7 @@ def verify_gwo_conversion(converted_file, original_file):
         print("✓ Cloud data matches")
 
     print("✓ Weather code differences are expected (not available in JMA format)")
-    print("="*80)
+    print("=" * 80)
 
     # Return exit code
     if core_data_matches:

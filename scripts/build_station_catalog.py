@@ -248,7 +248,7 @@ def enrich_with_smaster(stations: Dict[int, Dict]) -> None:
             start_raw = digits[-16:-8]
             end_raw = digits[-8:]
             prefix = digits[:-16]
-            suffix = line[date_match.end():]
+            suffix = line[date_match.end() :]
             text = "".join(ch for ch in suffix if not ch.isdigit())
             note = unicodedata.normalize("NFKC", text.replace("\u3000", " ").strip())
             start_date = iso_date(start_raw)
@@ -281,9 +281,7 @@ def apply_overrides(stations: Dict[int, Dict]) -> None:
             entry.setdefault("prefecture_jp", "沖縄県")
         if "prec_no" not in entry or "prefecture_jp" not in entry:
             station_id = entry.get("station_id", "unknown")
-            raise ValueError(
-                f"Missing prefecture info for {slug} (station_id={station_id})"
-            )
+            raise ValueError(f"Missing prefecture info for {slug} (station_id={station_id})")
 
 
 def to_yaml_payload(stations: Dict[int, Dict]) -> Dict:
