@@ -32,6 +32,9 @@ pip install -r requirements_jma_downloader.txt
 # 東京の2023年データをダウンロード
 python jma_weather_downloader.py --year 2023 --station tokyo
 
+# 東京・大阪の2022-2023年データを一括ダウンロード
+python jma_weather_downloader.py --year 2022 2023 --station tokyo osaka
+
 # 大阪の2020-2023年のデータをダウンロード
 python jma_weather_downloader.py --year 2020 2021 2022 2023 --station osaka
 ```
@@ -48,7 +51,7 @@ python jma_weather_downloader.py --year 2023 --prec_no 44 --block_no 47662 --nam
 ### オプション
 
 - `--year`: ダウンロード対象の年（複数指定可能）
-- `--station`: プリセット観測地点名
+- `--station`: `stations.yaml` に定義された観測地点キー（複数指定で一括ダウンロード）
 - `--prec_no`: 都道府県番号（カスタム地点）
 - `--block_no`: 観測地点番号（カスタム地点）
 - `--name`: 観測地点名（カスタム地点）

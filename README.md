@@ -68,7 +68,7 @@ Downloads historical hourly weather data directly from [JMA's etrn service](http
 **Key Features:**
 - Preset stations: Tokyo, Yokohama, Chiba, Osaka, Nagoya, Fukuoka, Sapporo
 - Custom station support via `prec_no` (prefecture code) and `block_no` (station code)
-- Bulk downloads for multiple years
+- Bulk downloads for multiple years and stations in one command
 - Automatic retry with exponential backoff
 - Configurable delay to reduce server load (default: 1.0s, minimum 0.5s recommended)
 
@@ -102,6 +102,9 @@ jma-download --year 2023 --station tokyo --output ./download
 
 # Adjust request delay (seconds)
 jma-download --year 2023 --station tokyo --delay 0.5
+
+# Download multiple stations (Tokyo, Osaka, Nagoya) for 2022-2023
+jma-download --year 2022 2023 --station tokyo osaka nagoya
 
 # Download with GWO format conversion (legacy database compatible)
 jma-download --year 2021 --station tokyo --gwo-format

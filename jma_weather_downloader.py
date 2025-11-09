@@ -635,7 +635,8 @@ Use --list-stations to inspect all catalog keys defined in stations.yaml.
     parser.add_argument(
         "--station",
         type=str,
-        help="観測地点名（stations.yamlのキー。大文字小文字は区別しません / case-insensitive）"
+        nargs="+",
+        help="観測地点名（stations.yamlのキー）。複数指定で一括ダウンロード可（case-insensitive）"
     )
 
     parser.add_argument(
@@ -704,61 +705,76 @@ Use --list-stations to inspect all catalog keys defined in stations.yaml.
     if not args.year:
         parser.error("--year は必須です（--list-stations で一覧表示のみ実行可能）")
 
-    # 観測地点の設定
-    station_metadata = None
+    # 観測地点の設定（複数対応）
+    station_jobs = []
     if args.station:
-        # Case-insensitive station matching
-        station_key = args.station.lower()
-        if station_key not in station_catalog:
-            print(
-                f"Error: Unknown station '{args.station}'. "
-                f"Use --list-stations to inspect available keys ({catalog_path})."
-            )
-            sys.exit(1)
+        if args.prec_no or args.block_no or args.name or args.name_en:
+            parser.error("--station と (--prec_no, --block_no, --name) は同時に指定できません")
 
-        station_info = station_catalog[station_key]
-        prec_no = str(station_info["prec_no"])
-        block_no = str(station_info["block_no"])
-        station_name = station_info.get("name_jp", station_info.get("name_en", args.station))
-        station_name_en = station_info.get("name_en", args.station)
-        station_metadata = {
-            "name_en": station_name_en,
-            "name_jp": station_name,
-            "station_id": str(station_info.get("station_id", "999")),
-            "remarks": station_info.get("remarks", []),
-        }
+        for station_arg in args.station:
+            station_key = station_arg.lower()
+            if station_key not in station_catalog:
+                print(
+                    f"Error: Unknown station '{station_arg}'. "
+                    f"Use --list-stations to inspect available keys ({catalog_path})."
+                )
+                sys.exit(1)
+
+            station_info = station_catalog[station_key]
+            station_jobs.append(
+                {
+                    "prec_no": str(station_info["prec_no"]),
+                    "block_no": str(station_info["block_no"]),
+                    "station_name": station_info.get("name_jp", station_info.get("name_en", station_arg)),
+                    "station_name_en": station_info.get("name_en", station_arg),
+                    "metadata": {
+                        "name_en": station_info.get("name_en", station_arg),
+                        "name_jp": station_info.get("name_jp", station_info.get("name_en", station_arg)),
+                        "station_id": str(station_info.get("station_id", "999")),
+                        "remarks": station_info.get("remarks", []),
+                    },
+                }
+            )
     elif args.prec_no and args.block_no and args.name:
-        prec_no = args.prec_no
-        block_no = args.block_no
-        station_name = args.name
-        station_name_en = args.name_en if args.name_en else args.name
-        station_metadata = {
-            "name_en": station_name_en,
-            "name_jp": station_name,
-            "station_id": "999",
-            "remarks": [],
-        }
+        station_jobs.append(
+            {
+                "prec_no": args.prec_no,
+                "block_no": args.block_no,
+                "station_name": args.name,
+                "station_name_en": args.name_en if args.name_en else args.name,
+                "metadata": {
+                    "name_en": args.name_en if args.name_en else args.name,
+                    "name_jp": args.name,
+                    "station_id": "999",
+                    "remarks": [],
+                },
+            }
+        )
     else:
         parser.error("--station または (--prec_no, --block_no, --name) のセットを指定してください")
 
-    # 各年についてダウンロード
-    for year in args.year:
-        print_special_remarks(station_metadata, year)
-        try:
-            download_yearly_data(
-                prec_no=prec_no,
-                block_no=block_no,
-                station_name=station_name,
-                station_name_en=station_name_en,
-                year=year,
-                output_dir=args.output,
-                delay=args.delay,
-                gwo_format=args.gwo_format,
-                station_metadata=station_metadata,
-            )
-        except Exception as e:
-            print(f"\n[ERROR] Failed to download {station_name} ({year}): {e}\n")
-            continue
+    # 各ステーション・各年についてダウンロード
+    for job in station_jobs:
+        station_name = job["station_name"]
+        station_name_en = job["station_name_en"]
+        print(f"\n{'#'*20} {station_name} / {station_name_en} {'#'*20}")
+        for year in args.year:
+            print_special_remarks(job["metadata"], year)
+            try:
+                download_yearly_data(
+                    prec_no=job["prec_no"],
+                    block_no=job["block_no"],
+                    station_name=station_name,
+                    station_name_en=station_name_en,
+                    year=year,
+                    output_dir=args.output,
+                    delay=args.delay,
+                    gwo_format=args.gwo_format,
+                    station_metadata=job["metadata"],
+                )
+            except Exception as e:
+                print(f"\n[ERROR] Failed to download {station_name} ({year}): {e}\n")
+                continue
 
 
 if __name__ == "__main__":
