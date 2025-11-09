@@ -280,6 +280,21 @@ numbers to their field names and meanings:
 | 32 | `precip` | 降水量 (0.1mm) |
 | 33 | `precip_rmk` | 降水 RMK |
 
+**RMK Codes Reference**
+
+| RMK | Meaning |
+|----:|---------|
+| 0 | 観測値が未作成 / Observation not produced |
+| 1 | 欠測 / Missing observation |
+| 2 | 観測していない / Not observed (e.g., nighttime for solar) |
+| 3 | 日の極値が真の値以下 / 推定値 / Daily extreme below true value / estimated |
+| 4 | 日の極値が真の値以上 / 地域データ / Daily extreme above true value / uses regional data |
+| 5 | 推定値を含む / 平均に欠測 / Contains estimated values / averages include missing hours |
+| 6 | 該当現象なし (例: 降水なし) / Phenomenon absent (e.g., no precipitation) |
+| 7 | 日の極値が前日に発生 / Daily extreme occurred on previous day |
+| 8 | 正常な観測値 / Normal, reliable observation |
+| 9 | 日の極値が翌日に発生 / 自動取得 / Daily extreme on next day / auto-retrieved (≤1990) |
+
 ### Station Catalog
 
 `src/gwo_amd/data/stations.yaml` lists every supported GWO/AMD station (currently 152 entries) with `prec_no`, `block_no`, coordinates, and time-bounded remarks derived from `gwo_stn.csv`, `smaster.index`, and `ame_master.pdf`. Use these helpers to explore or customize the catalog:
