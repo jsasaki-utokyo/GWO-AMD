@@ -127,7 +127,7 @@ The downloader can automatically convert downloaded data from the modern JMA for
 - **Wind direction mapping**: Japanese text (北西, 南東, etc.) → GWO codes (1-16)
 - **Unit conversion**: Direct values (hPa, °C, m/s) → Scaled values (×0.1)
 - **Cloud cover interpolation**: Linear interpolation for missing hourly values
-- **RMK code generation**: Proper remark codes (8=observed, 2=not observed, 1=missing)
+- **RMK code generation**: Proper remark codes (8=observed, 6=phenomenon absent, 2=not observed, 1=missing)
 - **Complete compatibility**: Output matches legacy GWO database format exactly
 
 **Usage:**
@@ -192,7 +192,7 @@ All example notebooks live under `notebooks/` and resolve paths via `$DATA_DIR`.
 | Solar radiation | 0.56 MJ/m² | 56 (×100) |
 | Precipitation | 12.5 mm | 125 (×10) |
 | Cloud cover | Sparse, "0+" (text) | Interpolated, 0-10 (numeric) |
-| No phenomenon | "--" (converted to 0 with RMK=2) | 0 with RMK=2 |
+| No phenomenon | "--" (converted to 0 with RMK=6) | 0 with RMK=6 |
 | Missing value | "///" or "×" (RMK=1) | RMK=1 (value omitted) |
 | Weather code | Not available | 0 with RMK=2 |
 
@@ -409,6 +409,16 @@ Quality control codes (0-9) indicate data reliability:
 - **9**: Daily extreme occurred on next day / auto-retrieved value (≤1990)
 
 See [JMA's official documentation](https://www.data.jma.go.jp/obd/stats/data/mdrr/man/remark.html) for details.
+
+> Note: JMA etrn CSV exports do **not** ship RMK columns. During `--gwo-format` conversion we infer
+> legacy GWO remark codes from the symbols that do appear (`--`, `///`, `×`, `)`, `#`, blanks, etc.).
+> As a result:
+> - `--` is treated as a real zero with `RMK=6` (phenomenon absent, e.g., no rain or nighttime radiation).
+> - Empty cells for intermittent elements (cloud/weather on non-observation hours) become `RMK=2`
+>   to mark "not observed".
+> - Missing or invalid markers (`///`, `×`) become `RMK=1`, while questionable markers (`#`, `)`, `]`)
+>   map to `RMK=5`.
+> These derived RMKs match the historical GWO semantics expected by downstream post-processing tools.
 
 ### Temporal Data Structure
 

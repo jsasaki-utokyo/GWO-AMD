@@ -184,7 +184,7 @@ Critical for data quality assessment:
 
 ### Missing Value Strategy
 - Use RMK columns to identify data quality issues
-- For solar radiation (`slht`) and daylight (`lght`): RMK=2 is valid (nighttime), only 0,1 are missing
+- For solar radiation (`slht`) and daylight (`lght`): RMK=6 is valid (nighttime), only 0,1 are missing
 - For cloud cover (`clod`) and weather (`tnki`): RMK=0,1,2 all indicate missing data
 - Missing rows (entire datetime entries) are filled with value=NaN and RMK=0
 

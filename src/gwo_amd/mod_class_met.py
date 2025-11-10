@@ -162,7 +162,7 @@ class Met_GWO(Met):
         self.items = Met_GWO.col_items
 
         ### the values of rmk to be set as NaN (RMK=0, 1, 2)
-        self.rmk_nan01 = ["0", "1"]  ### sghtとslhtの夜間はRMK=2なので，RMK=2を欠損値としない
+        self.rmk_nan01 = ["0", "1"]  ### sghtとslhtの夜間はRMK=6なので，RMK=6を欠損値としない
         self.rmk_nan = ["0", "1", "2"]  ### clodとtnkiは3時間間隔で，観測なしのRMK=2を欠損値とする必要がある
         self.__df, self.__df_interp, self.__df_interp_1H = self._create_df()
 
@@ -474,7 +474,7 @@ class Met_GWO_check(Met_GWO):
         self.items = Met_GWO.col_items
 
         ## the values of rmk to be set as NaN (RMK=0, 1, 2)
-        self.rmk_nan01 = ["0", "1"]  # sghtとslhtの夜間はRMK=2なので，RMK=2を欠損値としない
+        self.rmk_nan01 = ["0", "1"]  # sghtとslhtの夜間はRMK=6なので，RMK=6を欠損値としない
         self.rmk_nan = ["0", "1", "2"]  # clodとtnkiは3時間間隔で，観測なしのRMK=2を欠損値とする必要がある
         self.__df = super()._create_df(interp=False)  # ここは必ずFalseにする
 
@@ -498,7 +498,7 @@ class Met_GWO_daily(Met):
 
         self.items = ["lhpa",                       "shpa","kion","stem","rhum",                       "muki","sped","clod","tnki",                       "humd","lght","slht","kous","u","v"]
         ### the values of rmk to be set as NaN (RMK=0, 1, 2)
-        self.rmk_nan01 = ["0", "1"]  ### sghtとslhtの夜間はRMK=2なので，RMK=2を欠損値としない
+        self.rmk_nan01 = ["0", "1"]  ### sghtとslhtの夜間はRMK=6なので，RMK=6を欠損値としない
         self.rmk_nan = ["0", "1", "2"]  ### clodとtnkiは3時間間隔で，観測なしのRMK=2を欠損値とする必要がある
         # self.__df, self.__df_org, self.__df_interp, self.__df_interp_1H = self.__create_df()
         ### __create_df()でDataFrameを作る

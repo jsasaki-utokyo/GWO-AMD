@@ -35,7 +35,7 @@ def _make_sample_df():
                 2,
                 1005.0,
                 1010.0,
-                "--",  # no precipitation
+                "--",  # no precipitation (phenomenon absent)
                 10.0,
                 5.0,
                 12.0,
@@ -48,6 +48,28 @@ def _make_sample_df():
                 "",
                 "",
                 "7",
+                "",
+                2020,
+                1,
+                1,
+            ],
+            [
+                3,
+                1004.0,
+                1009.5,
+                "",  # precipitation not observed
+                9.0,
+                4.0,
+                11.0,
+                58,
+                2.2,
+                "北東",
+                "--",  # sunshine present but phenomenon absent (nighttime)
+                "--",  # solar radiation phenomenon absent
+                "",
+                "",
+                "",
+                "",
                 "",
                 2020,
                 1,
@@ -70,8 +92,8 @@ def test_convert_to_gwo_format_scales_and_handles_markers():
     converted, stats = convert_to_gwo_format(df, metadata)
 
     # Shape and stats sanity.
-    assert len(converted) == 2
-    assert stats["total_rows"] == 2
+    assert len(converted) == 3
+    assert stats["total_rows"] == 3
 
     # Row 1 scaling and mapping checks.
     first = converted.iloc[0]
@@ -86,10 +108,25 @@ def test_convert_to_gwo_format_scales_and_handles_markers():
     # Row 2 handling of "--" / missing markers.
     second = converted.iloc[1]
     assert pd.isna(second[31])  # precipitation not observed -> NaN
-    assert second[32] == 2  # precipitation RMK -> no phenomenon
+    assert second[32] == 6  # precipitation RMK -> phenomenon absent
     assert pd.isna(second[27])  # sunshine missing -> NaN
     assert pd.isna(second[29])  # solar missing -> NaN
     assert second[21] >= 0  # cloud interpolated to numeric
+
+    # Row 3 handles not-observed blanks and derived RMK=2.
+    third = converted.iloc[2]
+    assert pd.isna(third[31])  # precipitation not observed -> NaN
+    assert third[32] == 2  # precipitation RMK -> not observed slot
+    assert third[27] == 0  # sunshine value 0 for nighttime
+    assert third[28] == 6  # sunshine RMK -> phenomenon absent
+    assert third[29] == 0  # solar value 0
+    assert third[30] == 6  # solar RMK -> phenomenon absent
+
+    # Stats now separate not-observed vs phenomenon-absent counts.
+    assert stats["precipitation_not_observed"] == 1
+    assert stats["precipitation_no_phenomenon"] == 1
+    assert stats["sunshine_not_observed"] == 0
+    assert stats["sunshine_no_phenomenon"] == 1
 
 
 def test_jma_to_gwo_converter_reads_sample(fixtures_dir, tmp_path):
