@@ -205,7 +205,7 @@ def convert_to_gwo_format(df_jma, station_metadata):
                 - )  : quasi-normal (some missing data, ~80% present) → RMK=5
                 - ]  : insufficient data (gaps exceed tolerance) → RMK=5
                 - #  : questionable value → RMK=5
-                - -- : phenomenon absent (e.g., no rain, nighttime radiation) → value=0, RMK=6
+                - -- : no phenomenon occurred (e.g., no rain) → value=0, RMK=2
                 - /// or × : missing/invalid data → value=None, RMK=1
                 - (blank) : not an observation slot/item → value=None, RMK=2
                 """
@@ -220,7 +220,7 @@ def convert_to_gwo_format(df_jma, station_metadata):
 
                 # Check for no phenomenon
                 if val_str == "--":
-                    return 0, 6  # Phenomenon absent (value legitimately 0)
+                    return 0, 2  # Not observed / no phenomenon (legacy GWO semantics)
 
                 # Check for quality symbols (remove them but track quality)
                 quality_code = 8  # Normal by default
@@ -401,15 +401,16 @@ def convert_to_gwo_format(df_jma, station_metadata):
 
     # Interpolate cloud cover
     if len(gwo_df) > 0:
-        gwo_df[21] = (
-            gwo_df[21]
-            .replace({None: np.nan})
+        cloud_series = gwo_df[21].replace({None: np.nan}).infer_objects(copy=False)
+        cloud_interp = (
+            pd.to_numeric(cloud_series, errors="coerce")
             .interpolate(method="linear")
             .round()
             .clip(0, 10)
             .fillna(0)
             .astype(int)
         )
+        gwo_df[21] = cloud_interp
         # Update RMK for interpolated values (keep as 2 if originally not observed)
         # Actually, keep cloud RMK as 2 since original data didn't have it
 
@@ -465,12 +466,9 @@ def convert_to_gwo_format(df_jma, station_metadata):
         "humidity": (gwo_df[16] == 1).sum(),
         "wind_speed": (gwo_df[20] == 1).sum(),
         "dew_point": (gwo_df[26] == 1).sum(),
-        "sunshine_not_observed": (gwo_df[28] == 2).sum(),
-        "sunshine_no_phenomenon": (gwo_df[28] == 6).sum(),
-        "solar_not_observed": (gwo_df[30] == 2).sum(),
-        "solar_no_phenomenon": (gwo_df[30] == 6).sum(),
-        "precipitation_not_observed": (gwo_df[32] == 2).sum(),
-        "precipitation_no_phenomenon": (gwo_df[32] == 6).sum(),
+        "sunshine": (gwo_df[28] == 2).sum(),
+        "solar": (gwo_df[30] == 2).sum(),
+        "precipitation": (gwo_df[32] == 2).sum(),
         "cloud_original": cloud_original_missing,
     }
 
@@ -696,26 +694,22 @@ def download_yearly_data(
                     for msg in core_missing:
                         print(msg)
 
-                # Optional parameters (may have missing or unobserved intervals)
+                # Optional parameters (may have not-observed intervals)
                 print("  Optional Parameters:")
-                sun_not_obs = missing_stats["sunshine_not_observed"]
-                sun_no_ph = missing_stats["sunshine_no_phenomenon"]
-                solar_not_obs = missing_stats["solar_not_observed"]
-                solar_no_ph = missing_stats["solar_no_phenomenon"]
-                precip_not_obs = missing_stats["precipitation_not_observed"]
-                precip_no_ph = missing_stats["precipitation_no_phenomenon"]
-
-                def format_optional(label, not_obs, no_ph):
-                    not_obs_pct = not_obs * 100 / total
-                    no_ph_pct = no_ph * 100 / total
-                    return (
-                        f"  {label}: {not_obs}/{total} not observed ({not_obs_pct:.1f}%), "
-                        f"{no_ph}/{total} phenomenon absent ({no_ph_pct:.1f}%)"
-                    )
-
-                print(format_optional("Sunshine", sun_not_obs, sun_no_ph))
-                print(format_optional("Solar radiation", solar_not_obs, solar_no_ph))
-                print(format_optional("Precipitation", precip_not_obs, precip_no_ph))
+                sun_pct = missing_stats["sunshine"] * 100 / total
+                solar_pct = missing_stats["solar"] * 100 / total
+                precip_pct = missing_stats["precipitation"] * 100 / total
+                print(
+                    f"  Sunshine: {missing_stats['sunshine']}/{total} not observed ({sun_pct:.1f}%)"
+                )
+                print(
+                    f"  Solar radiation: {missing_stats['solar']}/{total} "
+                    f"not observed ({solar_pct:.1f}%)"
+                )
+                print(
+                    f"  Precipitation: {missing_stats['precipitation']}/{total} "
+                    f"not observed ({precip_pct:.1f}%)"
+                )
 
                 # Cloud cover interpolation report
                 cloud_orig_missing = missing_stats["cloud_original"]
