@@ -11,7 +11,8 @@ GWO-AMD provides tools for working with three types of JMA meteorological data:
 
 - **GWO (Ground Weather Observatory)** - 気象データベース地上観測: Legacy commercial database with hourly and daily ground observations
 - **AMD (AMeDAS)** - アメダス: Automated Meteorological Data Acquisition System database
-- **JMA etrn Web Downloader**: Modern tool to download hourly meteorological data from JMA's online service
+- **JMA etrn Web Downloader**: Tool to download hourly meteorological data from JMA's etrn service
+- **JMA obsdl Downloader**: Tool to download weather data from JMA's obsdl service with accurate RMK codes
 
 ## Quick Start
 
@@ -110,6 +111,52 @@ jma-download --year 2022 2023 --station tokyo osaka nagoya
 
 # Download with GWO format conversion (legacy database compatible)
 jma-download --year 2021 --station tokyo --gwo-format
+```
+
+### JMA obsdl Downloader (Accurate RMK Codes)
+
+Downloads weather data from [JMA's obsdl service](https://www.data.jma.go.jp/risk/obsdl/index.php) with structured quality information, enabling accurate RMK code generation.
+
+**Key Advantages over etrn:**
+- **Accurate RMK=6 vs RMK=2 distinction**: The obsdl service provides explicit phenomenon-absent flags, allowing proper differentiation between "no phenomenon occurred" (RMK=6) and "not observed" (RMK=2)
+- **Structured quality information**: Quality codes are provided as numeric values, not symbols that require parsing
+- **Direct GWO format output**: Outputs 33-column GWO format directly without intermediate conversion
+
+**RMK Code Accuracy:**
+| Situation | etrn (symbol parsing) | obsdl (structured) |
+|-----------|----------------------|-------------------|
+| No precipitation | RMK=2 (ambiguous) | RMK=6 (accurate) |
+| Not observed | RMK=2 | RMK=2 |
+| Normal observation | RMK=8 | RMK=8 |
+| Missing | RMK=1 | RMK=1 |
+
+**Usage Examples:**
+
+```bash
+# Download Tokyo 2023 data in GWO format (creates: gwo_data/Tokyo/Tokyo2023.csv)
+jma-obsdl --year 2023 --station tokyo
+
+# Download multiple years
+jma-obsdl --year 2020 2021 2022 2023 --station osaka
+
+# Download multiple stations
+jma-obsdl --year 2023 --station tokyo osaka nagoya
+
+# Specify output directory
+jma-obsdl --year 2023 --station tokyo --output ./converted
+
+# Adjust request delay (seconds)
+jma-obsdl --year 2023 --station tokyo --delay 1.5
+
+# List available stations
+jma-obsdl --list-stations
+```
+
+**Output Structure:**
+```
+gwo_data/
+  └── Tokyo/
+      └── Tokyo2023.csv  (33 columns, no header, GWO format)
 ```
 
 ### Format Conversion: JMA to GWO
