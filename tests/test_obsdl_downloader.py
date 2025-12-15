@@ -441,8 +441,8 @@ class TestDownloadParameters:
 
     def test_build_params_date_format(self, downloader):
         """Date range should be formatted correctly."""
-        from datetime import date
         import json
+        from datetime import date
 
         params = downloader._build_download_params(
             "s47662", date(2023, 6, 15), date(2023, 7, 20)

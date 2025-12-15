@@ -22,15 +22,12 @@ Usage:
 
 import argparse
 import json
-import re
 import sys
 import time
 from calendar import monthrange
 from datetime import date, datetime
-from io import StringIO
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import requests
 
@@ -232,7 +229,7 @@ class JMAObsdlDownloader:
             if "text/html" in content_type and "charset=UTF-8" in content_type:
                 # Likely an error page
                 if "エラー" in resp.text or "<html" in resp.text[:100]:
-                    print(f"    [WARN] Server returned error page")
+                    print("    [WARN] Server returned error page")
                     return None
 
             # Check for maintenance
@@ -781,7 +778,7 @@ class JMAObsdlGWOConverter:
         print(f"Downloading from obsdl: {station_name_jp} / {station_name_en} ({year})")
         print(f"Station ID: {station_id} (block_no: {block_no})")
         print(f"Output: {output_path}")
-        print(f"Format: GWO (33 columns, no header)")
+        print("Format: GWO (33 columns, no header)")
         print(f"{'=' * 60}\n")
 
         # Initialize session
@@ -864,15 +861,16 @@ class JMAObsdlGWOConverter:
         core_issues = []
         if stats.get("pressure_missing", 0) > 0:
             pct = stats["pressure_missing"] * 100 / total
-            core_issues.append(f"  Pressure: {stats['pressure_missing']}/{total} missing ({pct:.1f}%)")
+            n = stats["pressure_missing"]
+            core_issues.append(f"  Pressure: {n}/{total} missing ({pct:.1f}%)")
         if stats.get("temperature_missing", 0) > 0:
             pct = stats["temperature_missing"] * 100 / total
-            core_issues.append(
-                f"  Temperature: {stats['temperature_missing']}/{total} missing ({pct:.1f}%)"
-            )
+            n = stats["temperature_missing"]
+            core_issues.append(f"  Temperature: {n}/{total} missing ({pct:.1f}%)")
         if stats.get("humidity_missing", 0) > 0:
             pct = stats["humidity_missing"] * 100 / total
-            core_issues.append(f"  Humidity: {stats['humidity_missing']}/{total} missing ({pct:.1f}%)")
+            n = stats["humidity_missing"]
+            core_issues.append(f"  Humidity: {n}/{total} missing ({pct:.1f}%)")
 
         if core_issues:
             print("  Core Parameters (unexpected missing):")
@@ -905,7 +903,8 @@ class JMAObsdlGWOConverter:
             pct = stats["cloud_interpolated"] * 100 / total
             observed = total - stats["cloud_interpolated"]
             obs_pct = observed * 100 / total
-            print(f"    Cloud cover: {observed}/{total} observed ({obs_pct:.1f}%), rest interpolated")
+            print(f"    Cloud cover: {observed}/{total} observed ({obs_pct:.1f}%), "
+                  "rest interpolated")
 
 
 def download_yearly_gwo(
@@ -975,7 +974,10 @@ Format: GWO (33 columns, no header, scaled values with RMK codes)
     )
 
     parser.add_argument(
-        "--year", type=int, nargs="+", help="Target year(s) to download (required unless --list-stations)"
+        "--year",
+        type=int,
+        nargs="+",
+        help="Target year(s) to download (required unless --list-stations)",
     )
 
     parser.add_argument(
@@ -1041,7 +1043,9 @@ Format: GWO (33 columns, no header, scaled values with RMK codes)
 
     for station in args.station:
         station_info = station_catalog[station.lower()]
-        print(f"\n{'#' * 20} {station_info.get('name_jp', station)} / {station_info.get('name_en', station)} {'#' * 20}")
+        name_jp = station_info.get("name_jp", station)
+        name_en = station_info.get("name_en", station)
+        print(f"\n{'#' * 20} {name_jp} / {name_en} {'#' * 20}")
 
         for year in args.year:
             # Print relevant remarks

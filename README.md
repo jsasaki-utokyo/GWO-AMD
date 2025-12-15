@@ -113,7 +113,9 @@ df = met.df  # Processed DataFrame
 
 ## References
 
-- [JMA obsdl](https://www.data.jma.go.jp/risk/obsdl/) / [JMA etrn](https://www.data.jma.go.jp/stats/etrn/)
+- [JMA obsdl Service](https://www.data.jma.go.jp/risk/obsdl/) - Data download with quality codes
+- [JMA etrn Service](https://www.data.jma.go.jp/stats/etrn/) - Historical weather data search
+- [JMA obsdl API Reference (Gist)](https://gist.github.com/tmiyachi/8258072) - API implementation reference
 - [GWO Database (Weather Toy WEB)](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/)
 - [JMA RMK Codes](https://www.data.jma.go.jp/obd/stats/data/mdrr/man/remark.html)
 
