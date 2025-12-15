@@ -580,10 +580,19 @@ class JMAObsdlDownloader:
         cloud_quality = row.iloc[36] if len(row) > 36 else 8
         cloud_rmk = self._convert_quality_to_rmk(cloud_quality)
 
-        # Handle missing values - set to None for nullable columns
+        # Handle missing values - set to None for truly missing data (RMK=0,1)
         def mask_missing(value, rmk):
-            """Set value to None if RMK indicates missing/not observed."""
-            return None if rmk in (1, 2) else value
+            """Set value to None only for truly missing data (RMK=0 or RMK=1)."""
+            return None if rmk in (0, 1) else value
+
+        # Determine explicit zero values for physically meaningful cases:
+        # - Sunshine: RMK=2 (nighttime) → 0 hours of sunshine
+        # - Solar: RMK=2 (nighttime) → 0 W/m²
+        # - Precipitation: RMK=6 (no phenomenon) → 0 mm
+        # These are NOT missing data - they are valid zero values.
+        sunshine_value = 0 if sunshine_rmk in (2, 6) else mask_missing(sunshine, sunshine_rmk)
+        solar_value = 0 if solar_rmk == 2 else mask_missing(solar, solar_rmk)
+        precip_value = 0 if precip_rmk == 6 else mask_missing(precip, precip_rmk)
 
         # Build GWO row (33 columns)
         gwo_row = [
@@ -614,11 +623,11 @@ class JMAObsdlDownloader:
             2,  # 24: Weather RMK (always 2 = not observed)
             mask_missing(dew_point, dew_point_rmk),  # 25: Dew point
             dew_point_rmk,  # 26: Dew point RMK
-            mask_missing(sunshine, sunshine_rmk) if sunshine_rmk not in (2, 6) else 0,  # 27: Sunshine
+            sunshine_value,  # 27: Sunshine (0 for nighttime RMK=2)
             sunshine_rmk,  # 28: Sunshine RMK
-            mask_missing(solar, solar_rmk) if solar_rmk != 2 else 0,  # 29: Solar
+            solar_value,  # 29: Solar (0 for nighttime RMK=2)
             solar_rmk,  # 30: Solar RMK
-            mask_missing(precip, precip_rmk) if precip_rmk != 6 else 0,  # 31: Precipitation
+            precip_value,  # 31: Precipitation (0 for no phenomenon RMK=6)
             precip_rmk,  # 32: Precipitation RMK
         ]
 
@@ -870,21 +879,25 @@ class JMAObsdlGWOConverter:
             for msg in core_issues:
                 print(msg)
 
-        # Optional parameters
-        print("  Optional Parameters:")
+        # Optional parameters with explicit zero values
+        print("  Optional Parameters (explicit zeros, not missing):")
         if stats.get("sunshine_not_observed", 0) > 0:
             pct = stats["sunshine_not_observed"] * 100 / total
-            print(f"    Sunshine: {stats['sunshine_not_observed']}/{total} not observed ({pct:.1f}%)")
+            print(
+                f"    Sunshine: {stats['sunshine_not_observed']}/{total} "
+                f"nighttime (RMK=2, value=0) ({pct:.1f}%)"
+            )
         if stats.get("solar_not_observed", 0) > 0:
             pct = stats["solar_not_observed"] * 100 / total
             print(
-                f"    Solar radiation: {stats['solar_not_observed']}/{total} not observed ({pct:.1f}%)"
+                f"    Solar radiation: {stats['solar_not_observed']}/{total} "
+                f"nighttime (RMK=2, value=0) ({pct:.1f}%)"
             )
         if stats.get("precip_no_phenomenon", 0) > 0:
             pct = stats["precip_no_phenomenon"] * 100 / total
             print(
                 f"    Precipitation: {stats['precip_no_phenomenon']}/{total} "
-                f"no phenomenon (RMK=6) ({pct:.1f}%)"
+                f"no phenomenon (RMK=6, value=0) ({pct:.1f}%)"
             )
 
         # Cloud interpolation

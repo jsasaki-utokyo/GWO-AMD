@@ -300,6 +300,35 @@ class TestGWOConversion:
         assert result[31] == 0, "Precipitation value should be 0 when RMK=6"
         assert stats["precip_no_phenomenon"] == 1
 
+    def test_convert_row_sunshine_nighttime_explicit_zero(self, downloader):
+        """Test sunshine at nighttime (RMK=2) has explicit zero value."""
+        row = self._create_sample_obsdl_row()
+        # Set sunshine to not observed (quality=0 means nighttime)
+        row.iloc[28] = ""  # empty value (nighttime)
+        row.iloc[29] = 0  # phenomenon_absent = 0
+        row.iloc[30] = 0  # quality = 0 (not observed / nighttime)
+        stats = {"sunshine_not_observed": 0}
+
+        result = downloader._convert_row_to_gwo(row, "999", "テスト", stats)
+
+        assert result[28] == 2, "Sunshine RMK should be 2 for nighttime"
+        assert result[27] == 0, "Sunshine value should be 0 for nighttime, not NaN"
+        assert stats["sunshine_not_observed"] == 1
+
+    def test_convert_row_solar_nighttime_explicit_zero(self, downloader):
+        """Test solar radiation at nighttime (RMK=2) has explicit zero value."""
+        row = self._create_sample_obsdl_row()
+        # Set solar to not observed (quality=0 means nighttime)
+        row.iloc[32] = ""  # empty value (nighttime)
+        row.iloc[33] = 0  # quality = 0 (not observed / nighttime)
+        stats = {"solar_not_observed": 0}
+
+        result = downloader._convert_row_to_gwo(row, "999", "テスト", stats)
+
+        assert result[30] == 2, "Solar RMK should be 2 for nighttime"
+        assert result[29] == 0, "Solar value should be 0 for nighttime, not NaN"
+        assert stats["solar_not_observed"] == 1
+
     def test_convert_row_weather_always_not_observed(self, downloader):
         """Test weather is always marked as not observed (RMK=2)."""
         row = self._create_sample_obsdl_row()
