@@ -1,646 +1,176 @@
 # GWO-AMD
 
-A comprehensive toolkit for handling Japan Meteorological Agency (JMA) meteorological datasets, including legacy commercial databases (GWO/AMD) and modern web data download capabilities.
+Download and process Japan Meteorological Agency (JMA) weather data, with tools for legacy GWO/AMD database compatibility.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 
-## Overview
-
-GWO-AMD provides tools for working with three types of JMA meteorological data:
-
-- **GWO (Ground Weather Observatory)** - 気象データベース地上観測: Legacy commercial database with hourly and daily ground observations
-- **AMD (AMeDAS)** - アメダス: Automated Meteorological Data Acquisition System database
-- **JMA etrn Web Downloader**: Tool to download hourly meteorological data from JMA's etrn service
-- **JMA obsdl Downloader**: Tool to download weather data from JMA's obsdl service with accurate RMK codes
-
 ## Quick Start
 
-### Installation
-
 ```bash
-# Create conda environment (recommended)
+# Install
 conda env create -f environment.yml
 conda activate gwo-amd
+pip install -e .
 
-# Or install with pip
-pip install -e .[dev]
-```
-
-### Data Directory Configuration
-
-Configure data paths using environment variables (recommended):
-
-```bash
-# Copy example configuration
-cp .env.example .env
-
-# Edit .env with your paths
-# DATA_DIR=/mnt/d/Data
-
-# Verify configuration
-python -m gwo_amd.config
-```
-
-See [CONFIGURATION.md](CONFIGURATION.md) for detailed configuration options.
-
-### Basic Usage
-
-```bash
-# Download JMA weather data
-jma-download --year 2023 --station tokyo
-
-# Or use Python directly (module-run style)
-python -m gwo_amd.jma_weather_downloader --year 2023 --station tokyo
-
-# Process GWO/AMD data with Python
-python
->>> from pathlib import Path
->>> from gwo_amd.mod_class_met import Met_GWO
->>> gwo_hourly = Path("/mnt/c/Data/met/JMA_DataBase/GWO/Hourly")
->>> met = Met_GWO("2014-1-1", "2014-6-1", "Tokyo", str(gwo_hourly))
->>> df = met.df  # Get processed DataFrame
-```
-
-## Features
-
-### JMA Web Data Downloader
-
-Downloads historical hourly weather data directly from [JMA's etrn service](https://www.data.jma.go.jp/stats/etrn/index.php).
-
-**Key Features:**
-- Preset stations: Tokyo, Yokohama, Chiba, Osaka, Nagoya, Fukuoka, Sapporo
-- Custom station support via `prec_no` (prefecture code) and `block_no` (station code)
-- Bulk downloads for multiple years and stations in one command
-- Automatic retry with exponential backoff
-- Configurable delay to reduce server load (default: 1.0s, minimum 0.5s recommended)
-
-**Available Data:**
-- Atmospheric pressure (local and sea level)
-- Precipitation
-- Temperature and dew point temperature
-- Vapor pressure and humidity
-- Wind direction and speed
-- Sunshine duration
-- Solar radiation
-- Snowfall and snow depth
-- Weather conditions and cloud cover
-- Visibility
-
-**Usage Examples:**
-
-```bash
-# Download single year (creates: jma_data/Tokyo/Tokyo2023.csv)
-# Station names are case-insensitive: tokyo, Tokyo, TOKYO all work
-jma-download --year 2023 --station tokyo
-
-# Download multiple years
-jma-download --year 2020 2021 2022 2023 --station osaka
-
-# Custom station with prefecture and block codes
-jma-download --year 2023 --prec_no 44 --block_no 47662 --name 東京 --name_en Tokyo
-
-# Specify output directory (to copy to $DATA_DIR later)
-jma-download --year 2023 --station tokyo --output ./download
-
-# Adjust request delay (seconds)
-jma-download --year 2023 --station tokyo --delay 0.5
-
-# Download multiple stations (Tokyo, Osaka, Nagoya) for 2022-2023
-jma-download --year 2022 2023 --station tokyo osaka nagoya
-
-# Download with GWO format conversion (legacy database compatible)
-jma-download --year 2021 --station tokyo --gwo-format
-```
-
-### JMA obsdl Downloader (Accurate RMK Codes)
-
-Downloads weather data from [JMA's obsdl service](https://www.data.jma.go.jp/risk/obsdl/index.php) with structured quality information, enabling accurate RMK code generation.
-
-**Key Advantages over etrn:**
-- **Accurate RMK=6 vs RMK=2 distinction**: The obsdl service provides explicit phenomenon-absent flags, allowing proper differentiation between "no phenomenon occurred" (RMK=6) and "not observed" (RMK=2)
-- **Structured quality information**: Quality codes are provided as numeric values, not symbols that require parsing
-- **Direct GWO format output**: Outputs 33-column GWO format directly without intermediate conversion
-
-**RMK Code Accuracy:**
-| Situation | etrn (symbol parsing) | obsdl (structured) |
-|-----------|----------------------|-------------------|
-| No precipitation | RMK=2 (ambiguous) | RMK=6 (accurate) |
-| Not observed | RMK=2 | RMK=2 |
-| Normal observation | RMK=8 | RMK=8 |
-| Missing | RMK=1 | RMK=1 |
-
-**Usage Examples:**
-
-```bash
-# Download Tokyo 2023 data in GWO format (creates: gwo_data/Tokyo/Tokyo2023.csv)
+# Download weather data (GWO format)
 jma-obsdl --year 2023 --station tokyo
 
-# Download multiple years
-jma-obsdl --year 2020 2021 2022 2023 --station osaka
-
-# Download multiple stations
-jma-obsdl --year 2023 --station tokyo osaka nagoya
-
-# Specify output directory
-jma-obsdl --year 2023 --station tokyo --output ./converted
-
-# Adjust request delay (seconds)
-jma-obsdl --year 2023 --station tokyo --delay 1.5
-
-# List available stations
-jma-obsdl --list-stations
+# Process existing GWO database
+python -c "from gwo_amd.mod_class_met import Met_GWO; met = Met_GWO('2023-1-1', '2023-12-31', 'Tokyo', '/path/to/GWO/Hourly'); print(met.df.head())"
 ```
 
-**Output Structure:**
-```
-gwo_data/
-  └── Tokyo/
-      └── Tokyo2023.csv  (33 columns, no header, GWO format)
-```
+## JMA Data Download
 
-### Format Conversion: JMA to GWO
+Two CLI tools download historical hourly weather data from JMA:
 
-The downloader can automatically convert downloaded data from the modern JMA format to the legacy GWO format for compatibility with existing databases and analysis tools.
+| Tool | Source | Output | RMK Accuracy |
+|------|--------|--------|--------------|
+| `jma-obsdl` | [obsdl service](https://www.data.jma.go.jp/risk/obsdl/) | GWO format (33 cols) | High (structured quality codes) |
+| `jma-download` | [etrn service](https://www.data.jma.go.jp/stats/etrn/) | JMA or GWO format | Medium (symbol parsing) |
 
-**Why Convert?**
-- JMA changed data format in 2022 (20 columns with headers vs. 33 columns without headers)
-- Cloud cover data became sparse (only at 3-hour intervals)
-- Wind direction changed from numeric codes (1-16) to Japanese text (北, 南東, etc.)
-- Units changed from scaled values (×10) to direct values
+### jma-obsdl (Recommended)
 
-**Conversion Features:**
-- **Format transformation**: 20 columns → 33 columns, removes headers
-- **Wind direction mapping**: Japanese text (北西, 南東, etc.) → GWO codes (1-16)
-- **Unit conversion**: Direct values (hPa, °C, m/s) → Scaled values (×0.1)
-- **Cloud cover interpolation**: Linear interpolation for missing hourly values
-- **RMK code generation**: Proper remark codes (8=observed, 2=not observed / no phenomenon, 1=missing)
-- **Complete compatibility**: Output matches legacy GWO database format exactly
-
-**Usage:**
+Downloads directly to GWO format with accurate RMK codes:
 
 ```bash
-# Download and convert to GWO format
-jma-download --year 2021 --station tokyo --gwo-format
-
-# Convert multiple years for direct integration
-jma-download --year 2020 2021 2022 2023 --station tokyo --gwo-format --output ./converted
-
-# Copy converted data directly to GWO database
-cp -r ./converted/* $DATA_DIR/met/JMA_DataBase/GWO/Hourly/
+jma-obsdl --year 2023 --station tokyo                    # Single year
+jma-obsdl --year 2020 2021 2022 --station tokyo osaka    # Multiple years/stations
+jma-obsdl --list-stations                                # Show available stations
 ```
 
-### Running Tests
+Output: `gwo_data/{Station}/{Station}{Year}.csv`
 
-Before making structural changes, run the automated checks to ensure the core conversion logic and catalog parsing stay intact:
+### jma-download
+
+Downloads JMA format with optional GWO conversion:
 
 ```bash
-conda run --no-capture-output -n gwo-amd pytest
+jma-download --year 2023 --station tokyo                 # JMA format (20 cols)
+jma-download --year 2023 --station tokyo --gwo-format    # GWO format (33 cols)
 ```
 
-The suite exercises station catalog loading, remark filtering, and the JMA→GWO scaling pipeline so regressions surface quickly.
+## GWO/AMD Database Processing
 
-#### Live download checks (optional)
+The `mod_class_met` module reads legacy GWO/AMD databases:
 
-Network-dependent smoke tests live under `tests/test_manual_jma_download.py`. They are skipped by default; set `RUN_LIVE_JMA_TESTS=1` to enable them:
+```python
+from gwo_amd.mod_class_met import Met_GWO
 
-```bash
-RUN_LIVE_JMA_TESTS=1 conda run --no-capture-output -n gwo-amd pytest tests/test_manual_jma_download.py
+met = Met_GWO("2014-1-1", "2014-6-1", "Tokyo", "/path/to/GWO/Hourly")
+df = met.df  # Processed DataFrame with unit conversions
 ```
 
-### Development Setup & Linting
+**Classes:**
+- `Met_GWO`: Hourly data with interpolation and unit conversion
+- `Met_GWO_daily`: Daily aggregated data
+- `Met_GWO_check`: Data quality validation
+
+## Data Format Reference
+
+### GWO CSV Format (33 columns, no header)
+
+| Col | Field | Unit | Col | Field | Unit |
+|----:|-------|------|----:|-------|------|
+| 1-3 | station_id, name, id2 | | 18-19 | wind_dir, rmk | 1-16 code |
+| 4-7 | year, month, day, hour | | 20-21 | wind_speed, rmk | 0.1 m/s |
+| 8-9 | local_pressure, rmk | 0.1 hPa | 22-23 | cloud, rmk | 0-10 |
+| 10-11 | sea_pressure, rmk | 0.1 hPa | 24-25 | weather, rmk | code |
+| 12-13 | temperature, rmk | 0.1°C | 26-27 | dew_point, rmk | 0.1°C |
+| 14-15 | vapor_pressure, rmk | 0.1 hPa | 28-29 | sunshine, rmk | 0.1 h |
+| 16-17 | humidity, rmk | % | 30-31 | solar, rmk | 0.01 MJ/m²/h |
+| | | | 32-33 | precip, rmk | 0.1 mm |
+
+### RMK (Remark) Codes
+
+| RMK | Meaning |
+|----:|---------|
+| 0 | Observation not created |
+| 1 | Missing observation |
+| 2 | Not observed (nighttime for solar/sunshine: value=0) |
+| 6 | No phenomenon (no precipitation: value=0) |
+| 8 | Normal observation |
+
+### Wind Direction Codes
+
+| Code | Dir | Code | Dir | Code | Dir | Code | Dir |
+|-----:|-----|-----:|-----|-----:|-----|-----:|-----|
+| 0 | Calm | 5 | ESE | 10 | SW | 15 | NNW |
+| 1 | NNE | 6 | SE | 11 | WSW | 16 | N |
+| 2 | NE | 7 | SSE | 12 | W | | |
+| 3 | ENE | 8 | S | 13 | WNW | | |
+| 4 | E | 9 | SSW | 14 | NW | | |
+
+### Temporal Structure
+
+- **1961-1990**: 3-hour intervals; no sunshine/solar/precipitation
+- **1991+**: 1-hour intervals
+- **Cloud/weather**: 3-hour intervals only (interpolated for other hours)
+
+## Station Catalog
+
+152 stations defined in `src/gwo_amd/data/stations.yaml`:
 
 ```bash
-# Install runtime + dev tooling (pytest, ruff, notebooks)
-pip install -e .[dev]
+jma-obsdl --list-stations              # List all stations
+jma-obsdl --stations-config custom.yaml --year 2023 --station mystaton  # Custom catalog
+```
 
-# Static checks and formatting
+## Development
+
+```bash
+# Run tests
+conda activate gwo-amd
+pytest
+
+# Linting
 ruff check .
 ruff format .
 ```
 
-### Notebook Guidelines
-
-All example notebooks live under `notebooks/` and resolve paths via `$DATA_DIR`. Before committing notebook changes, clear outputs (`jupyter nbconvert --ClearOutputPreprocessor.enabled=True`) or run `nbstripout notebooks/*.ipynb` so diffs stay readable.
-
-**Format Comparison:**
-
-| Feature | JMA Format (default) | GWO Format (--gwo-format) |
-|---------|---------------------|---------------------------|
-| Columns | 20 | 33 |
-| Headers | Yes (2 rows) | No |
-| Pressure | 1008.4 hPa | 10084 (×10) |
-| Temperature | 15.3°C | 153 (×10) |
-| Dew point | 12.4°C | 124 (×10) |
-| Vapor pressure | 18.5 hPa | 185 (×10) |
-| Wind direction | 北西 (text) | 14 (code) |
-| Wind speed | 4.5 m/s | 45 (×10) |
-| Sunshine duration | 6.2 h | 62 (×10) |
-| Solar radiation | 0.56 MJ/m² | 56 (×100) |
-| Precipitation | 12.5 mm | 125 (×10) |
-| Cloud cover | Sparse, "0+" (text) | Interpolated, 0-10 (numeric) |
-| No phenomenon | "--" (converted to 0 with RMK=2) | 0 with RMK=2 |
-| Missing value | "///" or "×" (RMK=1) | RMK=1 (value omitted) |
-| Weather code | Not available | 0 with RMK=2 |
-
-**Wind Direction Mapping:**
-
-| Japanese | Code | Direction | Japanese | Code | Direction |
-|----------|------|-----------|----------|------|-----------|
-| 北 | 16 | N | 南 | 8 | S |
-| 北北東 | 1 | NNE | 南南西 | 9 | SSW |
-| 北東 | 2 | NE | 南西 | 10 | SW |
-| 東北東 | 3 | ENE | 西南西 | 11 | WSW |
-| 東 | 4 | E | 西 | 12 | W |
-| 東南東 | 5 | ESE | 西北西 | 13 | WNW |
-| 南東 | 6 | SE | 北西 | 14 | NW |
-| 南南東 | 7 | SSE | 北北西 | 15 | NNW |
-| 静穏 | 0 | Calm | | | |
-
-**Cloud Cover Interpolation Example:**
-
-```
-Original JMA data (3-hour intervals):
-  Hour 03: 8 (observed)
-  Hour 04: -- (missing)
-  Hour 05: -- (missing)
-  Hour 06: 2 (observed)
-
-Converted GWO data (interpolated):
-  Hour 03: 8, RMK=8 (observed)
-  Hour 04: 6, RMK=2 (interpolated)
-  Hour 05: 4, RMK=2 (interpolated)
-  Hour 06: 2, RMK=8 (observed)
-```
-
-**Output Structure (GWO/AMD Compatible):**
-
-Downloaded data follows the same structure as GWO/AMD databases:
-```
-{output_dir}/
-  └── {StationName}/
-      ├── {StationName}2020.csv
-      ├── {StationName}2021.csv
-      └── {StationName}2023.csv
-
-Example: jma_data/Tokyo/Tokyo2023.csv
-```
-
-### GWO Hourly CSV Column Reference
-
-Each row in the GWO/AMD hourly CSV uses 33 columns (no header). The format below applies to
-the post-1990 "hourly" files (1991 onward). Earlier data (≤1990) uses 3-hour intervals and fewer
-columns, so some fields may be absent or padded when older CSVs are encountered. Japan Meteorological
-Business Support Center documentation also notes that since 1991 wind direction and speed are recorded
-hourly, but planned maintenance or outages mark those hours as "not observed" (RMK=2). The table maps
-column numbers to their field names and meanings:
-
-| Col | Field | Description |
-|----:|-------|-------------|
-| 1 | `station_id` | 観測所ID |
-| 2 | `station_name` | 観測所名 |
-| 3 | `station_id2` | ID1 |
-| 4 | `year` | 年 |
-| 5 | `month` | 月 |
-| 6 | `day` | 日 |
-| 7 | `hour` | 時 |
-| 8 | `local_pressure` | 現地気圧 (0.1hPa) |
-| 9 | `local_pressure_rmk` | 現地気圧 RMK |
-| 10 | `sea_pressure` | 海面気圧 (0.1hPa) |
-| 11 | `sea_pressure_rmk` | 海面気圧 RMK |
-| 12 | `temperature` | 気温 (0.1°C) |
-| 13 | `temperature_rmk` | 気温 RMK |
-| 14 | `vapor_pressure` | 蒸気圧 (0.1hPa) |
-| 15 | `vapor_pressure_rmk` | 蒸気圧 RMK |
-| 16 | `humidity` | 相対湿度 (%) |
-| 17 | `humidity_rmk` | 相対湿度 RMK |
-| 18 | `wind_dir` | 風向 (1-16) |
-| 19 | `wind_dir_rmk` | 風向 RMK |
-| 20 | `wind_speed` | 風速 (0.1m/s) |
-| 21 | `wind_speed_rmk` | 風速 RMK |
-| 22 | `cloud` | 雲量 (0-10) |
-| 23 | `cloud_rmk` | 雲量 RMK |
-| 24 | `weather` | 現在天気 |
-| 25 | `weather_rmk` | 現在天気 RMK |
-| 26 | `dew_point` | 露点温度 (0.1°C) |
-| 27 | `dew_point_rmk` | 露点 RMK |
-| 28 | `sunshine` | 日照時間 (0.1h) |
-| 29 | `sunshine_rmk` | 日照 RMK |
-| 30 | `solar` | 全天日射量 (0.01MJ/m²/h) |
-| 31 | `solar_rmk` | 日射 RMK |
-| 32 | `precip` | 降水量 (0.1mm) |
-| 33 | `precip_rmk` | 降水 RMK |
-
-**RMK Codes Reference**
-
-| RMK | Meaning |
-|----:|---------|
-| 0 | 観測値が未作成 / Observation not produced |
-| 1 | 欠測 / Missing observation |
-| 2 | 観測していない / Not observed (e.g., nighttime for solar) |
-| 3 | 日の極値が真の値以下 / 推定値 / Daily extreme below true value / estimated |
-| 4 | 日の極値が真の値以上 / 地域データ / Daily extreme above true value / uses regional data |
-| 5 | 推定値を含む / 平均に欠測 / Contains estimated values / averages include missing hours |
-| 6 | 該当現象なし (例: 降水なし) / Phenomenon absent (e.g., no precipitation) |
-| 7 | 日の極値が前日に発生 / Daily extreme occurred on previous day |
-| 8 | 正常な観測値 / Normal, reliable observation |
-| 9 | 日の極値が翌日に発生 / 自動取得 / Daily extreme on next day / auto-retrieved (≤1990) |
-
-### Station Catalog
-
-`src/gwo_amd/data/stations.yaml` lists every supported GWO/AMD station (currently 152 entries) with `prec_no`, `block_no`, coordinates, and time-bounded remarks derived from `gwo_stn.csv`, `smaster.index`, and `ame_master.pdf`. Use these helpers to explore or customize the catalog:
-
-- Show all keys and metadata: `python -m gwo_amd.jma_weather_downloader --list-stations`
-- Point to a custom catalog: `python -m gwo_amd.jma_weather_downloader --stations-config my_stations.yaml ...`
-- Regenerate the packaged catalog after editing source CSVs: `python scripts/build_station_catalog.py`
-
-When you download data, the script automatically prints any special remarks whose date ranges intersect the requested year so you know about relocations or instrumentation changes that might affect the dataset.
-
-**Quick sanity check**  
-After creating/activating the `gwo-amd` conda environment, you can verify the catalog wiring without downloading data:
-
-```bash
-conda run --no-capture-output -n gwo-amd python -m gwo_amd.jma_weather_downloader --list-stations | head
-```
-
-### GWO/AMD Database Processing
-
-The `mod_class_met.py` module provides comprehensive classes for processing legacy commercial meteorological databases.
-
-**Core Classes:**
-
-- **`Met_GWO`**: Hourly data processing with automatic interpolation and unit conversion
-  - Handles temporal gaps (3-hour data ≤1990, 1-hour data 1991+)
-  - RMK-based quality control (remark codes 0-9)
-  - Missing value detection and interpolation
-
-- **`Met_GWO_check`**: Data quality validation (e.g., detects missing rows)
-
-- **`Met_GWO_daily`**: Daily aggregated data processing
-  - Special handling for solar radiation unit changes (1961/1981/2010)
-  - Sea level pressure corrections (1961-2002)
-
-- **`Data1D` / `Plot1D`**: Time series visualization with scalar/vector support
-
-**Python Usage:**
-
-```python
-from mod_class_met import Met_GWO
-
-# Load hourly data
-met = Met_GWO(
-    datetime_ini="2014-1-1 00:00:00",
-    datetime_end="2014-6-1 00:00:00",
-    stn="Tokyo",
-    dirpath="/path/to/JMA_DataBase/GWO/Hourly/"
-)
-
-# Access DataFrames
-df_original = met.df_org        # Raw data
-df_interpolated = met.df_interp # Interpolated at original frequency
-df_hourly = met.df              # Uniform 1-hour intervals
-
-# Export to CSV
-met.to_csv(df_hourly, "./tokyo_2014.csv")
-```
-
-### Jupyter Notebook Tools
-
-- **`notebooks/GWO_multiple_stns_to_stn.ipynb`**: Extract per-station CSV files from SQLViewer7.exe exports
-- **`notebooks/GWO_div_year.ipynb`**: Split station CSV files into yearly files
-- **`notebooks/run_hourly_met.ipynb`**: Plot and analyze hourly meteorological data
-- **`notebooks/run_daily_met.ipynb`**: Process daily aggregated data
-- **`notebooks/dev_class_met.ipynb`**: Development and testing notebook
-
-## Data Format Notes
-
-### JMA Data Format History
-
-The Japan Meteorological Agency and its data providers have used three distinct format periods:
-
-1. **Pre-2010 (Original GWO format)**
-   - 3-hour intervals for 1961-1990
-   - 33 columns, no headers
-   - Limited data availability (no sunshine/solar/precipitation before 1991)
-
-2. **2010-2021 (Modified GWO format)**
-   - 1-hour intervals
-   - 33 columns, no headers
-   - Scaled values (×0.1 for most parameters)
-   - Wind direction as numeric codes (1-16)
-   - Complete data coverage
-
-3. **2022+ (JMA-compatible format / 気象庁互換形式)**
-   - 1-hour intervals
-   - 20 columns with Japanese headers
-   - Direct values (hPa, °C, m/s - no scaling)
-   - Wind direction as Japanese text (北, 南東, etc.)
-   - Sparse cloud cover data (3-hour intervals only)
-   - Symbols: `--` = phenomenon did not occur (value 0), `×` / `///` = missing observation, `#` = questionable
-
-The `gwo_amd.jma_weather_downloader` tool downloads data in the modern JMA format (2022+) by default, but can convert to legacy GWO format (2010-2021 compatible) using the `--gwo-format` option.
-
-### RMK (Remark) Codes
-
-Quality control codes (0-9) indicate data reliability:
-
-- **0**: Observation value not created
-- **1**: Missing observation
-- **2**: Not observed (e.g., nighttime for solar radiation)
-- **3**: Daily extreme value below true value / estimated value
-- **4**: Daily extreme value above true value / uses regional data
-- **5**: Contains estimated values / 24-hour average includes missing values
-- **6**: No corresponding phenomenon occurred
-- **7**: Daily extreme occurred on previous day
-- **8**: Normal observation value (reliable)
-- **9**: Daily extreme occurred on next day / auto-retrieved value (≤1990)
-
-See [JMA's official documentation](https://www.data.jma.go.jp/obd/stats/data/mdrr/man/remark.html) for details.
-
-> Note: JMA etrn CSV exports do **not** ship RMK columns. During `--gwo-format` conversion we infer
-> legacy GWO remark codes from the symbols that do appear (`--`, `///`, `×`, `)`, `#`, blanks, etc.).
-> As a result:
-> - `--` is converted to a real zero with `RMK=2` (GWO treats "phenomenon absent / not observed" the same).
-> - Empty cells for intermittent elements (cloud/weather on non-observation hours) remain `RMK=2` to mark
->   "not observed."
-> - Missing or invalid markers (`///`, `×`) become `RMK=1`, while questionable markers (`#`, `)`, `]`)
->   map to `RMK=5`.
-> These derived RMKs match the historical GWO semantics (the legacy database uses 2 vs 8 almost exclusively).
-
-### Temporal Data Structure
-
-- **1961-1990**: 3-hour intervals (03:00, 06:00, ..., 00:00); no sunshine/solar/precipitation data
-- **1991+**: 1-hour intervals (01:00, 02:00, ..., 00:00)
-- **Cloud cover/weather**: Always 3-hour intervals (03:00, 06:00, ..., 21:00)
-
-### Unit Conversions
-
-The `Met_GWO` class automatically converts units:
-
-| Parameter              | Original Unit    | Converted Unit |
-|------------------------|------------------|----------------|
-| Pressure               | 0.1 hPa          | hPa            |
-| Temperature            | 0.1°C            | °C             |
-| Humidity               | %                | 0-1            |
-| Wind direction         | 1-16 code        | degrees (0-360)|
-| Wind speed             | 0.1 m/s          | m/s            |
-| Cloud cover            | 0-10             | 0-1            |
-| Sunshine hours         | 0.1 h            | h              |
-| Solar radiation        | 0.01 MJ/m²/h     | W/m²           |
-
-### Special Considerations
-
-**Solar Radiation Units (Daily Data):**
-- 1961-1980: 1 cal/cm²
-- 1981-2009: 0.1 MJ/m²
-- 2010+: 0.01 MJ/m²
-
-**Sea Level Pressure (1961-2002):**
-- Values ≥10000 have 10000 subtracted; add 10000 for correction
-
-**Known Data Issues:**
-- Chiba 2010-2011: Missing rows in hourly data (use `Met_GWO_check` for validation)
-
-## Testing
-
-```bash
-# Test JMA downloader with single day
-python test_jma_downloader.py
-
-# Test weekly data download
-python test_jma_week.py
-
-# Verify converted GWO data against original database
-python -m gwo_amd.verify_gwo_conversion jma_data/Tokyo/Tokyo2019.csv $DATA_DIR/met/JMA_DataBase/GWO/Hourly/Tokyo/Tokyo2019.csv
-```
-
-### Verification Script
-
-The `gwo_amd.verify_gwo_conversion` script compares converted JMA data with original GWO database files to ensure accuracy:
-
-```bash
-# Usage
-python -m gwo_amd.verify_gwo_conversion <converted_file> <original_file>
-
-# Example
-python -m gwo_amd.verify_gwo_conversion jma_data/Tokyo/Tokyo2019.csv /path/to/GWO/Hourly/Tokyo/Tokyo2019.csv
-```
-
-**Features:**
-- Column-by-column comparison of all 33 GWO format columns
-- Identifies core data matches (pressure, temperature, humidity, wind)
-- Detects known bugs in original GWO data (cloud interpolation)
-- Issues warnings that disappear when original data is corrected
-- Accounts for expected differences (weather codes not in JMA format)
-
-**Known Bug in Original GWO Data:**
-
-The original GWO database has a bug where **cloud cover is not interpolated** between 3-hour observation intervals (03:00, 06:00, 09:00, etc.). Instead, it sets `cloud=0` with `RMK=2` for non-observation hours.
-
-The converter **correctly interpolates** cloud values, providing better data continuity. For example:
-- Hour 03: cloud=8 (observed)
-- Hour 04: cloud=6 (interpolated) ← Original GWO has 0 here (bug)
-- Hour 05: cloud=4 (interpolated) ← Original GWO has 0 here (bug)
-- Hour 06: cloud=2 (observed)
-
-The verification script will issue a warning about this bug, which will disappear once you correct the original GWO CSV files with proper interpolation.
-
-## Documentation
-
-For detailed implementation guidance, see [CLAUDE.md](CLAUDE.md).
-
-For Japanese documentation on the JMA downloader, see [JMA_DOWNLOADER_README.md](JMA_DOWNLOADER_README.md).
-
-## About GWO/AMD Databases
-
-The GWO (Ground Weather Observatory) and AMD (AMeDAS) databases are legacy commercial products from the Japan Meteorological Business Support Center. While no longer sold, purchasers can access support information at [Weather Toy WEB](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/).
-
-- [GWO Database Details](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/top5_1.htm)
-- [AMD Database Details](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/top2_1.htm)
-- [More Information](https://estuarine.jp/2016/05/gwo/)
-
-**Note**: The 2022+ data from Weather Toy WEB uses "JMA-compatible format" (気象庁互換形式) with different units than earlier data. The `mod_class_met.py` module handles both formats.
+## References
+
+- [JMA Historical Weather Data](https://www.data.jma.go.jp/stats/etrn/index.php)
+- [JMA obsdl Service](https://www.data.jma.go.jp/risk/obsdl/index.php)
+- [JMA RMK Codes](https://www.data.jma.go.jp/obd/stats/data/mdrr/man/remark.html)
+- [GWO Database (Weather Toy WEB)](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/top5_1.htm)
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-**Note**: Meteorological data copyright belongs to the Japan Meteorological Agency. Please comply with [JMA's terms of use](https://www.jma.go.jp/jma/kishou/info/coment.html).
-
-## References
-
-- [JMA Historical Weather Data Search](https://www.data.jma.go.jp/stats/etrn/index.php)
-- [JMA Data Remark Codes](https://www.data.jma.go.jp/obd/stats/data/mdrr/man/remark.html)
-- [JMA Website Terms of Use](https://www.jma.go.jp/jma/kishou/info/coment.html)
-
-## Author
-
-Jun Sasaki (coded on 2017-09-09, updated on 2024-07-02)
+MIT License. Meteorological data copyright belongs to JMA - see [terms of use](https://www.jma.go.jp/jma/kishou/info/coment.html).
 
 ---
 
 <details>
-<summary><b>日本語版 README (Original Japanese README)</b></summary>
+<summary>日本語版 README</summary>
 
-# GWO-AMD
-[GWO](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/) and [AMD](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/) GWO-AMD is a Japan Meteorological Agency's meteorological dataset handling tool.
+## GWO-AMD
 
-## 気象庁互換形式
-- 2022年のデータもウェザートーイWEBのサポートで配布されていますが，気象庁互換形式です．値欄に数値以外の記号が含まれており，要注意です．
-- [**値欄の情報**](https://www.data.jma.go.jp/obd/stats/data/mdrr/man/remark.html)
+気象庁の気象データをダウンロード・処理するツール。GWO/AMDデータベース形式に対応。
 
-## 気象データベース地上観測（GWO）とアメダス（AMD）の準備
-- 気象データベース地上観測（GWO）およびアメダス（AMD）から**SQLViewer7.exe**で切り出した，全地点全期間（ただし，1990年以前と1991年以降の2つのファイルに分割）のCSVファイルを読み込み，観測点別年別のCSVファイルとして切り出す，**Jupyter Notebook**を用意しました．
-- 切り出したCSVの単位は元のデータベースの単位です．[**気象庁互換**](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/top2_11.html)はわかりやすいですが，2022年度以降に採用することとします．すなわち，地点別年別のCSVファイルの形式は2021年以前と2022年以降で異なっており，これらを読み込むコードで対応する方針とします．これは過去の蓄積を最大限生かすためです．この読み込むコードはmod_class_met.pyです．
-- [**気象庁互換**](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/top2_11.html)は最新の気象庁WEBで公開されており，換算不要のわかりやすい単位です．
-- GWOには対応していますが，他は未完成です．
-- これは商用データベースで，既に販売は終了していますが，購入者は[ウェザートーイWEB](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/)でサポート情報を入手できます．詳細は[こちら](https://estuarine.jp/2016/05/gwo/)を参照ください．
-- データの詳細は[GWO](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/top5_1.htm)および[AMD](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/top2_1.htm)を参照ください．
+### 使い方
 
-## データベースの詳細情報
+```bash
+# インストール
+conda env create -f environment.yml
+conda activate gwo-amd
+pip install -e .
 
-### [GWO](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/top5_1.htm)
-#### [日別データベース](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/gwodb.htm#2_1)
-
-- 全天日射量の単位に付いての注意
-
-```
-1961年～1980年  1 cal/c㎡
-1981年～2009年  0.1MJ/㎡
-2010年以降は    0.01MJ/㎡
-```
-- 最低海面気圧の注意
-```
-1961年～2002年では、10000以上は、10000引かれています
-（オンラインデータの2003年～2005年も10000以上は、10000引かれています）
+# データダウンロード（GWO形式）
+jma-obsdl --year 2023 --station tokyo
 ```
 
-#### [時別データベース](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/gwodb.htm#2_2)
-```
-◇１９６１年～１９９０年　３時間置きです
-(※1)ただしこの期間の日照時間、全天日射量、降水量のデータはありません。
-◇１９９１年～２０ｎｎ年　１時間置きです
-◇雲量／現在天気は、3時～21時で3時間置きです
-```
+### データベースについて
 
-### [AMD](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/top2_1.htm)
+- **GWO（気象データベース地上観測）**: 時別・日別データ（1961年〜）
+- **AMD（アメダス）**: 自動気象観測システムデータ
 
-準備中
+詳細は[ウェザートーイWEB](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/)を参照。
 
-## 使い方
-- **notebooks/GWO_multiple_stns_to_stn.ipynb**で，SqlView7.exeで切り出した全観測点全期間のCSVファイルを読み込み，観測点別のCSVファイルとして，指定されたディレクトリに出力する．
-- **notebooks/GWO_div_year.ipynb**で，観測点別ディレクトリに年別CSVファイルとして出力する．
-- 詳細はそれぞれのJupyter Notebookを参照ください．
+### 注意事項
 
-## 注意
-- **2019/01/11:** 千葉の2010年，2011年の時別値CSVデータファイルに欠損行があったので，欠損行をチェックするclass Met_GWO_check(Met_GWO)を**mod_class_met.py**に追加した．
-- 詳細は../GWO/Hourly/Chiba/readme.txt を参照（GitHubには無し）
-- Since there were missing rows in the time series CSV data files for Chiba in 2010 and 2011, a class of Met_GWO_check (Met_GWO) is added in **mod_class_met.py** to check such missing rows.
-
-## Plotツール
-- 簡単なプロットツール **notebooks/run_hourly_met.ipynb** を用意しました．**gwo_amd.mod_class_met**を読み込みます．
-- A simple GWO hourly meteorological data plotting and processing tool of **notebooks/run_hourly_met.ipynb** is prepared, which imports **gwo_amd.mod_class_met**.
-- Hourly data directory path should be given:
-`dirpath` には `DATA_DIR` で設定したパス（例: `/mnt/c/Data/met/JMA_DataBase/GWO/Hourly/`）を基準に設定してください。
+- 2022年以降は「気象庁互換形式」（単位が異なる）
+- 千葉2010-2011年の時別値に欠損行あり
+- 全天日射量の単位: 1961-1980年 1cal/cm², 1981-2009年 0.1MJ/m², 2010年以降 0.01MJ/m²
 
 </details>
