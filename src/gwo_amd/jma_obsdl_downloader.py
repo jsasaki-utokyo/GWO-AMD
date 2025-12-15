@@ -158,9 +158,7 @@ class JMAObsdlDownloader:
             POST parameters for obsdl download
         """
         # Build element list
-        element_list = [
-            [HOURLY_ELEMENT_IDS[elem], ""] for elem in GWO_REQUIRED_ELEMENTS
-        ]
+        element_list = [[HOURLY_ELEMENT_IDS[elem], ""] for elem in GWO_REQUIRED_ELEMENTS]
 
         # Build ymdList as JSON array
         # Format: [start_year, end_year, start_month, end_month, start_day, end_day]
@@ -356,9 +354,7 @@ class JMAObsdlDownloader:
         }
         return rmk_map.get(quality, 8)
 
-    def convert_to_gwo(
-        self, df: pd.DataFrame, station_metadata: dict
-    ) -> tuple[pd.DataFrame, dict]:
+    def convert_to_gwo(self, df: pd.DataFrame, station_metadata: dict) -> tuple[pd.DataFrame, dict]:
         """
         Convert obsdl DataFrame to GWO format (33 columns).
 
@@ -411,9 +407,7 @@ class JMAObsdlDownloader:
         # Process each row
         for idx, row in df.iterrows():
             try:
-                gwo_row = self._convert_row_to_gwo(
-                    row, station_id, station_name_jp, stats
-                )
+                gwo_row = self._convert_row_to_gwo(row, station_id, station_name_jp, stats)
                 if gwo_row:
                     gwo_rows.append(gwo_row)
                     stats["total_rows"] += 1
@@ -630,9 +624,7 @@ class JMAObsdlDownloader:
 
         return gwo_row
 
-    def _apply_cloud_interpolation(
-        self, df: pd.DataFrame, stats: dict
-    ) -> pd.DataFrame:
+    def _apply_cloud_interpolation(self, df: pd.DataFrame, stats: dict) -> pd.DataFrame:
         """
         Apply cloud cover interpolation to GWO DataFrame.
 
@@ -665,11 +657,7 @@ class JMAObsdlDownloader:
         # Convert cloud to numeric and interpolate
         cloud_series = pd.to_numeric(df[cloud_col], errors="coerce")
         cloud_interp = (
-            cloud_series.interpolate(method="linear")
-            .round()
-            .clip(0, 10)
-            .fillna(0)
-            .astype(int)
+            cloud_series.interpolate(method="linear").round().clip(0, 10).fillna(0).astype(int)
         )
         df[cloud_col] = cloud_interp
 
@@ -903,8 +891,9 @@ class JMAObsdlGWOConverter:
             pct = stats["cloud_interpolated"] * 100 / total
             observed = total - stats["cloud_interpolated"]
             obs_pct = observed * 100 / total
-            print(f"    Cloud cover: {observed}/{total} observed ({obs_pct:.1f}%), "
-                  "rest interpolated")
+            print(
+                f"    Cloud cover: {observed}/{total} observed ({obs_pct:.1f}%), rest interpolated"
+            )
 
 
 def download_yearly_gwo(
@@ -1052,9 +1041,7 @@ Format: GWO (33 columns, no header, scaled values with RMK codes)
             print_special_remarks(station_info, year)
 
             try:
-                result = converter.download_year_gwo(
-                    station, year, args.output, station_catalog
-                )
+                result = converter.download_year_gwo(station, year, args.output, station_catalog)
                 if result:
                     print(f"  -> Saved: {result}")
             except Exception as e:

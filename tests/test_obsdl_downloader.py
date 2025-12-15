@@ -430,9 +430,7 @@ class TestDownloadParameters:
         """Station ID should include 's' prefix."""
         from datetime import date
 
-        params = downloader._build_download_params(
-            "s47662", date(2023, 1, 1), date(2023, 1, 31)
-        )
+        params = downloader._build_download_params("s47662", date(2023, 1, 1), date(2023, 1, 31))
 
         import json
 
@@ -444,9 +442,7 @@ class TestDownloadParameters:
         import json
         from datetime import date
 
-        params = downloader._build_download_params(
-            "s47662", date(2023, 6, 15), date(2023, 7, 20)
-        )
+        params = downloader._build_download_params("s47662", date(2023, 6, 15), date(2023, 7, 20))
 
         ymd_list = json.loads(params["ymdList"])
         assert ymd_list[0] == "2023"  # start year
@@ -460,9 +456,7 @@ class TestDownloadParameters:
         """Verify required flags are set."""
         from datetime import date
 
-        params = downloader._build_download_params(
-            "s47662", date(2023, 1, 1), date(2023, 1, 31)
-        )
+        params = downloader._build_download_params("s47662", date(2023, 1, 1), date(2023, 1, 31))
 
         assert params["downloadFlag"] == "true"
         assert params["rmkFlag"] == "1"  # Quality info
