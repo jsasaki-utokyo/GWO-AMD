@@ -134,3 +134,4 @@ dmypy.json
 test_*.csv
 temp_jma/
 jma_data/
+gwo_data/
