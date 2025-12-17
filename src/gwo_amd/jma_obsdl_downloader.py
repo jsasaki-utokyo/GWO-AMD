@@ -496,7 +496,16 @@ class JMAObsdlDownloader:
             if pd.isna(val) or val == "" or val == "--":
                 return None
             try:
-                v = float(str(val).strip())
+                val_str = str(val).strip()
+                # Handle JMA trace notations:
+                # "0+" means nearly zero (trace amount)
+                # "10-" means slightly less than 10
+                if val_str.endswith("+"):
+                    val_str = val_str[:-1]
+                elif len(val_str) > 1 and val_str.endswith("-") and val_str[:-1].replace(".", "").isdigit():
+                    # "10-" -> 10, but not "-10" (negative)
+                    val_str = val_str[:-1]
+                v = float(val_str)
                 return round(v * scale)
             except ValueError:
                 return None
