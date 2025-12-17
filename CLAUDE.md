@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 GWO-AMD is a Japan Meteorological Agency (JMA) meteorological dataset handling tool:
 - **GWO**: Ground Weather Observatory database (気象データベース地上観測)
 - **AMD**: AMeDAS database (アメダス)
-- **JMA etrn**: Live weather data downloader from JMA's online etrn service
-- **JMA obsdl**: Weather data downloader from JMA's obsdl service with accurate RMK codes
+- **JMA obsdl**: Weather data downloader from JMA's obsdl service (recommended)
+- **JMA etrn**: Weather data downloader from JMA's etrn service (deprecated)
 
 ## Core Commands
 
@@ -41,25 +41,7 @@ ruff check .
 ruff format .
 ```
 
-### JMA Data Download
-```bash
-# Console script (after pip install -e .)
-jma-download --year 2023 --station tokyo
-
-# Module execution
-python -m gwo_amd.jma_weather_downloader --year 2023 --station tokyo
-
-# With GWO format conversion
-jma-download --year 2021 --station tokyo --gwo-format
-
-# List available stations
-python -m gwo_amd.jma_weather_downloader --list-stations
-
-# Verify conversion against original GWO database
-python -m gwo_amd.verify_gwo_conversion <converted_file> <original_file>
-```
-
-### JMA obsdl Download (Accurate RMK Codes)
+### JMA Data Download (Recommended: obsdl)
 ```bash
 # Console script (GWO format output)
 jma-obsdl --year 2023 --station tokyo
@@ -75,6 +57,15 @@ jma-obsdl --year 2023 --station tokyo --output ./gwo_data
 
 # List available stations
 jma-obsdl --list-stations
+
+# Verify conversion against original GWO database
+python -m gwo_amd.verify_gwo_conversion <converted_file> <original_file>
+```
+
+### JMA etrn Download (Deprecated)
+```bash
+# Deprecated - use jma-obsdl instead
+jma-download --year 2023 --station tokyo --gwo-format
 ```
 
 ## Architecture
@@ -149,21 +140,23 @@ src/gwo_amd/
 
 ### JMA Downloader Guidelines
 
-**etrn Downloader (`jma_weather_downloader.py`):**
-- Minimum 0.5s delay between requests to respect server load
-- Downloads use `pd.read_html()` for HTML table scraping
-- Station codes: https://www.data.jma.go.jp/stats/etrn/index.php
-- UTF-8-BOM encoding for Excel compatibility
-- RMK codes inferred from symbols (`--`, `///`, `×`)
-
-**obsdl Downloader (`jma_obsdl_downloader.py`):**
+**obsdl Downloader (`jma_obsdl_downloader.py`) - Recommended:**
 - Uses structured quality information (not symbol parsing)
 - Accurate RMK=6 (no phenomenon) vs RMK=2 (not observed) distinction
+- Handles JMA special notations: `0+` (trace), `10-` (slightly less than 10)
 - API endpoint: `https://www.data.jma.go.jp/risk/obsdl/show/table`
 - Session management via `ci_session` cookie
 - CSV encoding: cp932/Shift-JIS
 - Quality codes: 8 (normal), 5 (quasi-normal), 4/2 (questionable), 1 (missing), 0 (not observed)
 - Phenomenon-absent flag: 1 (no phenomenon) → RMK=6 when quality=8
+- Cloud cover: Linearly interpolated for non-observation hours (RMK=2)
+
+**etrn Downloader (`jma_weather_downloader.py`) - Deprecated:**
+- Minimum 0.5s delay between requests to respect server load
+- Downloads use `pd.read_html()` for HTML table scraping
+- Station codes: https://www.data.jma.go.jp/stats/etrn/index.php
+- UTF-8-BOM encoding for Excel compatibility
+- RMK codes inferred from symbols (`--`, `///`, `×`) - less accurate than obsdl
 
 ### Configuration Priority
 1. Environment variables (highest)

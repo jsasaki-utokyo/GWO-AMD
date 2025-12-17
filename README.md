@@ -1,8 +1,8 @@
 # GWO-AMD
 
 Tools for JMA (Japan Meteorological Agency) meteorological data:
-1. **Convert** commercial GWO/AMD database exports (SDP format via SQLViewer7) to per-station yearly CSV files
-2. **Download** recent data from JMA website (since commercial data service ended)
+1. **Download** data from JMA website using obsdl service (recommended)
+2. **Convert** commercial GWO/AMD database exports (SDP format via SQLViewer7) to per-station yearly CSV files
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
@@ -15,7 +15,46 @@ mamba activate gwo-amd
 pip install -e .
 ```
 
-## 1. Converting Commercial Database (SDP → CSV)
+## 1. Downloading Data from JMA (Recommended)
+
+Download meteorological data directly from JMA obsdl service and output in GWO format:
+
+```bash
+# Download single year/station
+jma-obsdl --year 2023 --station tokyo
+
+# Download multiple years/stations
+jma-obsdl --year 2020 2021 2022 --station tokyo osaka
+
+# Custom output directory
+jma-obsdl --year 2023 --station tokyo --output ./my_data
+
+# List available stations
+jma-obsdl --list-stations
+```
+
+Output: `gwo_data/{Station}/{Station}{Year}.csv`
+
+### Why obsdl?
+
+The `jma-obsdl` command uses JMA's obsdl API which provides:
+- **Accurate RMK codes**: Explicit quality information (not inferred from symbols)
+- **Proper distinction**: Between RMK=2 (not observed) and RMK=6 (no phenomenon)
+- **Direct GWO format**: No conversion needed
+- **Reliable parsing**: Handles JMA's special notations (e.g., `0+`, `10-`)
+
+### Deprecated: etrn Service
+
+The `jma-download` command (using etrn HTML scraping) is **deprecated** but kept for legacy purposes:
+
+```bash
+# Deprecated - use jma-obsdl instead
+jma-download --year 2023 --station tokyo --gwo-format
+```
+
+**Limitations of etrn**: RMK codes are inferred from display symbols (`--`, `///`, `×`), which is less accurate than obsdl's explicit quality codes.
+
+## 2. Converting Commercial Database (SDP → CSV)
 
 Extract data exported from GWO/AMD databases via SQLViewer7.exe:
 
@@ -29,24 +68,6 @@ jupyter notebook notebooks/GWO_div_year.ipynb
 
 Output structure: `{Station}/{Station}{Year}.csv` (33 columns, GWO format)
 
-## 2. Downloading Recent Data from JMA
-
-Since commercial data service ended, download recent data directly from JMA:
-
-```bash
-# Recommended: obsdl service (accurate RMK codes, direct GWO format)
-jma-obsdl --year 2023 --station tokyo
-jma-obsdl --year 2020 2021 2022 --station tokyo osaka
-
-# Alternative: etrn service (with optional GWO conversion)
-jma-download --year 2023 --station tokyo --gwo-format
-
-# List available stations
-jma-obsdl --list-stations
-```
-
-Output: `gwo_data/{Station}/{Station}{Year}.csv`
-
 ## 3. Processing GWO Data
 
 Read and analyze GWO CSV files with automatic unit conversion:
@@ -55,7 +76,7 @@ Read and analyze GWO CSV files with automatic unit conversion:
 from gwo_amd.mod_class_met import Met_GWO
 
 met = Met_GWO("2023-1-1", "2023-12-31", "Tokyo", "/path/to/GWO/Hourly")
-df = met.df  # Processed DataFrame
+df = met.df  # Processed DataFrame with unit conversion applied
 ```
 
 ## Data Format
@@ -75,13 +96,13 @@ df = met.df  # Processed DataFrame
 
 ### RMK (Remark) Codes
 
-| RMK | Meaning | Value |
-|----:|---------|-------|
-| 0 | Observation not created | NaN |
-| 1 | Missing observation | NaN |
-| 2 | Not observed (nighttime for solar/sunshine) | 0 |
-| 6 | No phenomenon (no precipitation) | 0 |
-| 8 | Normal observation | observed |
+| RMK | Meaning | Value Handling |
+|----:|---------|----------------|
+| 0 | Observation not created | Missing (NaN) |
+| 1 | Missing observation | Missing (NaN) |
+| 2 | Not observed (nighttime for solar/sunshine) | 0 (physically correct) |
+| 6 | No phenomenon (no precipitation) | 0 (physically correct) |
+| 8 | Normal observation | Observed value |
 
 ### Wind Direction Codes
 
@@ -99,7 +120,7 @@ df = met.df  # Processed DataFrame
 |--------|----------|-------|
 | 1961-1990 | 3-hour | No sunshine/solar/precipitation |
 | 1991+ | 1-hour | Full data coverage |
-| Cloud/weather | 3-hour only | Interpolated for other hours |
+| Cloud/weather | 3-hour only | Linearly interpolated for other hours |
 
 ### Unit Conversion (by `Met_GWO`)
 
@@ -113,8 +134,8 @@ df = met.df  # Processed DataFrame
 
 ## References
 
-- [JMA obsdl Service](https://www.data.jma.go.jp/risk/obsdl/) - Data download with quality codes
-- [JMA etrn Service](https://www.data.jma.go.jp/stats/etrn/) - Historical weather data search
+- [JMA obsdl Service](https://www.data.jma.go.jp/risk/obsdl/) - Recommended data download with quality codes
+- [JMA etrn Service](https://www.data.jma.go.jp/stats/etrn/) - Historical weather data search (deprecated for download)
 - [jmadata.py (GitHub Gist)](https://gist.github.com/barusan/3f098cc74b92fad00b9bb4478da35385) - obsdl API implementation reference
 - [GWO Database (Weather Toy WEB)](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/)
 - [JMA RMK Codes](https://www.data.jma.go.jp/obd/stats/data/mdrr/man/remark.html)
@@ -130,8 +151,8 @@ MIT. Meteorological data copyright: [JMA terms](https://www.jma.go.jp/jma/kishou
 
 ### 目的
 
-1. 商用GWO/AMDデータベース（SDP形式）を地点別年別CSVに変換
-2. 商用データサービス終了後、気象庁WebサイトからデータをダウンロードしてGWO形式CSVを作成
+1. 気象庁obsdlサービスから気象データをダウンロードしGWO形式CSVを作成（推奨）
+2. 商用GWO/AMDデータベース（SDP形式）を地点別年別CSVに変換
 
 ### 使い方
 
@@ -141,9 +162,27 @@ mamba env create -f environment.yml
 mamba activate gwo-amd
 pip install -e .
 
-# データダウンロード
+# データダウンロード（推奨）
 jma-obsdl --year 2023 --station tokyo
+
+# 複数年・複数地点
+jma-obsdl --year 2020 2021 2022 --station tokyo osaka
+
+# 利用可能な地点一覧
+jma-obsdl --list-stations
 ```
+
+### なぜobsdlを使うのか？
+
+`jma-obsdl`コマンドは気象庁のobsdl APIを使用し、以下の利点があります：
+- **正確なRMKコード**: 品質情報が明示的に提供される（記号からの推測ではない）
+- **適切な区別**: RMK=2（観測なし）とRMK=6（現象なし）を正しく区別
+- **直接GWO形式出力**: 変換不要
+- **信頼性の高い解析**: 気象庁の特殊表記（`0+`、`10-`など）に対応
+
+### 非推奨: etrnサービス
+
+`jma-download`コマンド（etrn HTMLスクレイピング）は**非推奨**ですが、互換性のため残されています。
 
 詳細は[ウェザートーイWEB](http://www.roy.hi-ho.ne.jp/ssai/mito_gis/)を参照。
 
