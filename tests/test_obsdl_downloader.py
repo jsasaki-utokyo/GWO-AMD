@@ -206,14 +206,36 @@ class TestGWOConversion:
         assert result[6] == 12  # hour
 
     def test_convert_row_hour_24(self, downloader):
-        """Test hour 24 handling (midnight)."""
+        """Test hour 24 handling (midnight).
+
+        Midnight (00:00) on Jan 15 represents hour 24 of Jan 14 in GWO format.
+        """
         row = self._create_sample_obsdl_row()
         row.iloc[0] = "2023/1/15 0:00:00"  # midnight
         stats = {}
 
         result = downloader._convert_row_to_gwo(row, "999", "テスト", stats)
 
+        assert result[3] == 2023, "Year should remain 2023"
+        assert result[4] == 1, "Month should remain January"
+        assert result[5] == 14, "Day should be 14th (previous day from 15th)"
         assert result[6] == 24, "Midnight (00:00) should be hour 24 in GWO"
+
+    def test_convert_row_hour_24_year_boundary(self, downloader):
+        """Test hour 24 handling at year boundary.
+
+        Midnight (00:00) on Jan 1 2024 represents hour 24 of Dec 31 2023.
+        """
+        row = self._create_sample_obsdl_row()
+        row.iloc[0] = "2024/1/1 0:00:00"  # midnight on Jan 1
+        stats = {}
+
+        result = downloader._convert_row_to_gwo(row, "999", "テスト", stats)
+
+        assert result[3] == 2023, "Year should be previous year (2023)"
+        assert result[4] == 12, "Month should be December"
+        assert result[5] == 31, "Day should be 31st"
+        assert result[6] == 24, "Hour should be 24"
 
     def test_convert_row_pressure_scaling(self, downloader):
         """Test pressure scaling (×10)."""

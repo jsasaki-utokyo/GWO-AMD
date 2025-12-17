@@ -25,7 +25,7 @@ import json
 import sys
 import time
 from calendar import monthrange
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -475,11 +475,21 @@ class JMAObsdlDownloader:
             except ValueError:
                 return None
 
-        year = dt.year
-        month = dt.month
-        day = dt.day
         # GWO uses 1-24 for hours (24:00 = next day 00:00)
-        hour = dt.hour if dt.hour > 0 else 24
+        # When JMA returns 00:00 (e.g., 2023/1/2 0:00:00), this represents
+        # the end of the previous day, so we need to adjust to Jan 1 hour 24.
+        if dt.hour == 0:
+            # Midnight belongs to hour 24 of the previous day
+            prev_day = dt - timedelta(days=1)
+            year = prev_day.year
+            month = prev_day.month
+            day = prev_day.day
+            hour = 24
+        else:
+            year = dt.year
+            month = dt.month
+            day = dt.day
+            hour = dt.hour
 
         def parse_value(val, scale=1):
             """Parse numeric value and scale it."""
