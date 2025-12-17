@@ -502,7 +502,11 @@ class JMAObsdlDownloader:
                 # "10-" means slightly less than 10
                 if val_str.endswith("+"):
                     val_str = val_str[:-1]
-                elif len(val_str) > 1 and val_str.endswith("-") and val_str[:-1].replace(".", "").isdigit():
+                elif (
+                    len(val_str) > 1
+                    and val_str.endswith("-")
+                    and val_str[:-1].replace(".", "").isdigit()
+                ):
                     # "10-" -> 10, but not "-10" (negative)
                     val_str = val_str[:-1]
                 v = float(val_str)
