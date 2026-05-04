@@ -1,8 +1,9 @@
 # GWO-AMD
 
 Tools for JMA (Japan Meteorological Agency) meteorological data:
-1. **Download** data from JMA website using obsdl service (recommended)
-2. **Convert** commercial GWO/AMD database exports (SDP format via SQLViewer7) to per-station yearly CSV files
+1. **Download** SYNOP/官署 hourly data from JMA's obsdl service (`jma-obsdl`, recommended)
+2. **Download** AMeDAS hourly data from JMA's obsdl service (`jma-obsdl-amd`, bbox-aware)
+3. **Convert** commercial GWO/AMD database exports (SDP format via SQLViewer7) to per-station yearly CSV files
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
@@ -54,7 +55,78 @@ jma-download --year 2023 --station tokyo --gwo-format
 
 **Limitations of etrn**: RMK codes are inferred from display symbols (`--`, `///`, `×`), which is less accurate than obsdl's explicit quality codes.
 
-## 2. Converting Commercial Database (SDP → CSV)
+## 2. Downloading AMeDAS Hourly Data (`jma-obsdl-amd`)
+
+`jma-obsdl-amd` extends `jma-obsdl` to AMeDAS stations (`aXXXX` station codes,
+4-digit zero-padded). Output is GWO-compatible (33-column CSV, no header) so it
+can be read by the same loaders as `jma-obsdl`.
+
+```bash
+# Download every AMeDAS station inside a bounding box for 2020
+jma-obsdl-amd --year 2020 --bbox 138.889 33.972 141.528 36.250
+
+# Single station (slug = obsdl stid, e.g. a0371 = Haneda)
+jma-obsdl-amd --year 2020 --station a0371
+
+# Multiple years
+jma-obsdl-amd --year 2019 2020 2021 --bbox 138.889 33.972 141.528 36.250
+
+# Inspect the catalog without downloading
+jma-obsdl-amd --list-stations --bbox 138.889 33.972 141.528 36.250
+
+# Custom output directory
+jma-obsdl-amd --year 2020 --station a0371 --output ./amd_data
+```
+
+Output: `amd_data/{stid}/{stid}{year}.csv`. Example: `amd_data/a0371/a03712020.csv`.
+
+### Station catalog
+
+The AMeDAS catalog ships with the package at
+`src/gwo_amd/data/amedas_stations.yaml`. Each entry includes the `prec_no`,
+`stid`, decimal `latitude`/`longitude`, the JMA `kansoku` flag string, a
+derived `category` (`kan`/`shi`/`san`/`ame`/`yuki`), and an `elements` list of
+the JMA element IDs the station observes.
+
+To regenerate the catalog (live scrape of the obsdl prefecture pages):
+
+```bash
+python scripts/build_amedas_station_catalog.py
+# Or limit to a few prefectures
+python scripts/build_amedas_station_catalog.py --prefectures 44 45 46
+```
+
+### Output schema
+
+`jma-obsdl-amd` emits the same 33-column GWO layout as `jma-obsdl`. AMeDAS
+stations typically observe a subset of the SYNOP elements: 4-element 四
+stations measure rain/wind/temp/sunshine (sometimes humidity), 3-element 三
+stations measure rain/wind/temp only, and rainfall-only stations measure
+precipitation only. Elements **not** observed by the station are written as
+`value=NaN, RMK=0` ("observation not created"). Cloud cover is never
+AMeDAS-observed and is always `NaN, RMK=0`.
+
+The bbox CLI excludes rain-only (`ame`) and snow-only (`yuki`) stations by
+default — use `--include-rain-only` to keep them. Terminated stations are also
+excluded by default; use `--include-terminated` to include them.
+
+### RMK semantics for AMeDAS
+
+| Source | RMK | Meaning |
+|--------|----:|---------|
+| Instrument absent (per `kansoku`) | 0 | NaN value |
+| obsdl quality 1 | 1 | Missing observation |
+| obsdl quality 0, observed station | 2 | Not observed (e.g. nighttime sunshine) |
+| obsdl quality 8, value=0.0, precipitation | 6 | No phenomenon (dry hour) |
+| obsdl quality 8 | 8 | Normal |
+| obsdl quality 5/4/2 | 5 | Quasi-normal / insufficient / questionable |
+
+The **RMK=6 promotion for precipitation is heuristic for AMeDAS**: AMeDAS CSVs
+do not include the explicit `phenomenon_absent` flag that JMA documents as
+SYNOP-only, so we infer "no rain" from value=0.0 with quality=8 (which is the
+JMA convention for an observed dry hour).
+
+## 3. Converting Commercial Database (SDP → CSV)
 
 Extract data exported from GWO/AMD databases via SQLViewer7.exe:
 
@@ -68,7 +140,7 @@ jupyter notebook notebooks/GWO_div_year.ipynb
 
 Output structure: `{Station}/{Station}{Year}.csv` (33 columns, GWO format)
 
-## 3. Processing GWO Data
+## 4. Processing GWO Data
 
 Read and analyze GWO CSV files with automatic unit conversion:
 
